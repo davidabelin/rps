@@ -19,6 +19,7 @@ def create_app(config: dict | None = None) -> Flask:
     )
     app.config.from_mapping(
         SECRET_KEY="dev-only-secret-key-change-me",
+        DATABASE_URL=os.getenv("DATABASE_URL", ""),
         DB_PATH=os.getenv("DB_PATH", str(data_dir / "rps.db")),
         EVENTS_DIR=os.getenv("EVENTS_DIR", str(data_dir / "events")),
         MODELS_DIR=os.getenv("MODELS_DIR", str(data_dir / "models")),
@@ -36,7 +37,8 @@ def create_app(config: dict | None = None) -> Flask:
     if config:
         app.config.update(config)
 
-    repository = RPSRepository(app.config["DB_PATH"])
+    database_target = app.config["DATABASE_URL"] or app.config["DB_PATH"]
+    repository = RPSRepository(database_target)
     repository.init_schema()
     training_jobs = TrainingJobManager(
         repository,

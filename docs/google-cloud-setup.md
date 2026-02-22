@@ -102,7 +102,7 @@ gcloud app deploy app.yaml
 4. Confirm model artifacts appear under your bucket `models/` prefix.
 5. Play with `active_model` on `/play`.
 
-## 10) Known current limitation
+## 10) Next step
 
-- Database metadata (`games`, `rounds`, `jobs`, `models`) is still SQLite-based in this phase.
-- For durable production metadata, next step is Cloud SQL migration (or equivalent managed DB).
+- Cloud SQL migration is now supported through `DATABASE_URL`.
+- Follow `docs/cloud-sql-setup.md` to move metadata from SQLite to PostgreSQL.

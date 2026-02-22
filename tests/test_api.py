@@ -133,6 +133,19 @@ def test_benchmark_endpoint_returns_canonical_results(client):
     assert bots == {"quincy", "abbey", "kris", "mrugesh"}
 
 
+def test_benchmark_endpoint_returns_json_error_on_internal_failure(client, monkeypatch):
+    def _boom(*args, **kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr("rps_web.blueprints.benchmarks.benchmark_agent", _boom)
+    response = client.post("/api/v1/benchmarks/run", json={"agent": "markov", "rounds": 120, "seed": 9})
+    assert response.status_code == 500
+    payload = response.get_json()
+    assert payload is not None
+    assert "error" in payload
+    assert "Benchmark failed:" in payload["error"]
+
+
 def test_training_readiness_endpoint(client):
     response = client.get("/api/v1/training/readiness?lookback=5")
     assert response.status_code == 200

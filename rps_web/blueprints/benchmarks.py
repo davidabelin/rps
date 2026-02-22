@@ -37,5 +37,8 @@ def run_benchmark():
         agent_factory = _resolve_agent_factory(agent_name)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
-    results = benchmark_agent(agent_factory=agent_factory, rounds=rounds, seed=seed)
+    try:
+        results = benchmark_agent(agent_factory=agent_factory, rounds=rounds, seed=seed)
+    except Exception as exc:  # pragma: no cover
+        return jsonify({"error": f"Benchmark failed: {exc}"}), 500
     return jsonify({"agent": agent_name, "benchmark": results})

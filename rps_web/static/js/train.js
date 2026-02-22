@@ -151,9 +151,21 @@
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    const body = await response.json();
+    const contentType = response.headers.get("content-type") || "";
+    const isJson = contentType.toLowerCase().includes("application/json");
+    const body = isJson ? await response.json() : null;
     if (!response.ok) {
-      benchmarkOutput.textContent = `Benchmark error: ${body.error || "unknown error"}`;
+      if (body && body.error) {
+        benchmarkOutput.textContent = `Benchmark error: ${body.error}`;
+        return;
+      }
+      const raw = await response.text();
+      const snippet = String(raw || "").slice(0, 180).replace(/\s+/g, " ").trim();
+      benchmarkOutput.textContent = `Benchmark error: HTTP ${response.status}. ${snippet || "Server returned non-JSON error."}`;
+      return;
+    }
+    if (!body) {
+      benchmarkOutput.textContent = `Benchmark error: HTTP ${response.status}. Server returned non-JSON success payload.`;
       return;
     }
     benchmarkOutput.textContent = JSON.stringify(body.benchmark, null, 2);
