@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}RPS Agent Lab | Play{% endblock %}
+{% block content %}
+<section class="stack">
+  <div class="panel">
+    <h1>Human vs AI</h1>
+    <p>Create a game, choose your move, and watch the duel reveal.</p>
+    <div class="controls-row">
+      <label for="agentSelect">AI Agent</label>
+      <select id="agentSelect"></select>
+      <button id="newGameBtn" class="btn btn-primary">New Game</button>
+    </div>
+    <p id="gameStatus" class="status">No active game.</p>
+  </div>
+
+  <div class="arena panel">
+    <div class="fighter">
+      <h2>You</h2>
+      <div id="playerAction" class="action-chip idle">-</div>
+    </div>
+    <div class="versus">VS</div>
+    <div class="fighter">
+      <h2>AI</h2>
+      <div id="aiAction" class="action-chip idle">-</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="controls-row">
+      <button class="btn btn-action" data-action="rock">Rock</button>
+      <button class="btn btn-action" data-action="paper">Paper</button>
+      <button class="btn btn-action" data-action="scissors">Scissors</button>
+    </div>
+    <div id="outcomeBanner" class="outcome">Pick a move to begin.</div>
+    <div class="score-row">
+      <span>Wins: <strong id="wins">0</strong></span>
+      <span>Losses: <strong id="losses">0</strong></span>
+      <span>Ties: <strong id="ties">0</strong></span>
+      <span>Rounds: <strong id="rounds">0</strong></span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Round Log</h2>
+    <ul id="roundLog" class="log-list"></ul>
+  </div>
+</section>
+
+<script src="{{ url_for('static', filename='js/play.js') }}"></script>
+{% endblock %}

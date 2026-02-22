@@ -1,0 +1,20 @@
+runtime: python313
+entrypoint: gunicorn -b :$PORT run:app
+
+env_variables:
+  # Temporary SQLite for now. Move to Cloud SQL for durable production state.
+  DB_PATH: /tmp/rps.db
+  # Set these to gs://<bucket>/<prefix> after creating your bucket.
+  EVENTS_DIR: /tmp/events
+  MODELS_DIR: /tmp/models
+  EXPORTS_DIR: /tmp/exports
+  # local = in-process thread execution
+  # task_queue = enqueue training jobs to Cloud Tasks and execute via internal worker endpoint
+  TRAINING_EXECUTION_MODE: local
+  TASKS_PROJECT_ID: directed-sonar-429119-u2
+  TASKS_LOCATION: us-west1
+  TASKS_QUEUE: rps-training
+  TRAINING_WORKER_URL: https://directed-sonar-429119-u2.uw.r.appspot.com
+  INTERNAL_WORKER_TOKEN: change-me-long-random-token
+
+service_account: circa-orbit-sa@directed-sonar-429119-u2.iam.gserviceaccount.com

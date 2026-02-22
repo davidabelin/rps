@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}RPS Agent Lab | Training{% endblock %}
+{% block content %}
+<section class="stack">
+  <div class="panel">
+    <h1>Supervised Training</h1>
+    <p>Train a model from recorded gameplay and activate it for live play.</p>
+    <form id="trainForm" class="train-form">
+      <label>
+        Model
+        <select name="model_type">
+          <option value="decision_tree">Decision Tree</option>
+          <option value="mlp">MLP</option>
+          <option value="frequency">Frequency Baseline</option>
+        </select>
+      </label>
+      <label>
+        Lookback
+        <input name="lookback" type="number" min="2" max="20" value="5">
+      </label>
+      <label>
+        Learning Rate
+        <input name="learning_rate" type="number" step="0.0001" value="0.001">
+      </label>
+      <label>
+        Hidden Layer 1 (MLP)
+        <input name="hidden_layer_1" type="number" min="1" step="1" value="64">
+      </label>
+      <label>
+        Hidden Layer 2 (MLP)
+        <input name="hidden_layer_2" type="number" min="0" step="1" value="32">
+      </label>
+      <label>
+        Batch Size (MLP)
+        <input name="batch_size" type="number" min="1" step="1" value="32" placeholder="Leave empty for auto">
+      </label>
+      <label>
+        Epochs (MLP)
+        <input name="epochs" type="number" min="10" step="10" value="200">
+      </label>
+      <button class="btn btn-primary" type="submit">Start Training Job</button>
+    </form>
+    <p id="mlpHint" class="status">MLP-only fields are editable at all times. For non-MLP models they are ignored.</p>
+    <p id="readinessStatus" class="status">Checking training readiness...</p>
+  </div>
+
+  <div class="panel">
+    <h2>Job Status</h2>
+    <p id="jobStatus">No active training job.</p>
+    <div class="meter">
+      <div id="jobProgress" class="meter-fill"></div>
+    </div>
+    <svg id="jobChart" class="job-chart" viewBox="0 0 300 90" role="img" aria-label="Training progress chart">
+      <polyline id="jobChartLine" fill="none" stroke="currentColor" stroke-width="3" points=""></polyline>
+    </svg>
+    <pre id="jobMetrics" class="metrics"></pre>
+  </div>
+
+  <div class="panel">
+    <h2>Benchmark Against Canonical Bots</h2>
+    <p>Target: non-tie win rate of at least <strong>0.60</strong> across quincy, abbey, kris, and mrugesh.</p>
+    <div class="controls-row">
+      <label for="benchmarkAgentSelect">Agent</label>
+      <select id="benchmarkAgentSelect">
+        <option value="active_model">active_model</option>
+      </select>
+      <label for="benchmarkRoundsInput">Rounds / bot</label>
+      <input id="benchmarkRoundsInput" type="number" min="50" step="50" value="1000">
+      <button id="runBenchmarkBtn" class="btn btn-secondary">Run Benchmark</button>
+    </div>
+    <pre id="benchmarkOutput" class="metrics">No benchmark run yet.</pre>
+  </div>
+
+  <div class="panel">
+    <h2>Model Registry</h2>
+    <button id="refreshModelsBtn" class="btn btn-secondary">Refresh Models</button>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Test Accuracy</th>
+          <th>Active</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="modelTableBody"></tbody>
+    </table>
+  </div>
+</section>
+
+<script src="{{ url_for('static', filename='js/train.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,22 @@
+Project home/workspace: C:\Users\David\Documents\Local_Python\rps
+
+General idea: to build an animated web app for playing "rock-paper-scissors" with and between AI agents (as trained neural networks and with other programming techniques).
+
+1. Retrieve very old code from Jupiter Notebooks that hopefully contains implemented "programming techniques" that we can re-write and re-use for this project. Take the useful code out of the Notebooks and into proper .py python files. (Note: this code may reference resources and tools at kaggle.com, but we don't want to use those, we want to write our own code to do the same things, as necessary).
+Reference repos (local):
+C:\Users\David\Documents\Repositories\kaggle-files\rock-paper-scissors
+C:\Users\David\Documents\Repositories\kaggle-files\rps
+
+2. Design neural networks to train. Training data will come from the move/reward record of games between optimized hard-wired agents like those from the Notebooks). Also, later, or instead of, we will want to use reinforcement learning to let NN agents learn to play on their own. (Which training route to use may depend on what we can find from step 1.)
+
+3. Design the web app. There will be a welcome/splash page with navigation choices. One page will be for a human opponent vs. an artificial player (network trained or optimization program); another page will be just for training NNs on recorded data: with training Options to select, eg. Model and Learning Rate, and displays for showing Loss etc. as training proceeds; another page (maybe) for Reinforcement Learning; and others. Start out with a base.html to extend, to keep everything consistent and well-linked. (It will eventually be running on Google App Engine so we should start out with that end in mind, but for development we'll use a local Flask server).  The first thing to have running will be the human-vs-AI page, with proper control buttons, animated icons for rock, paper, and scissors to reveal outcome of both players' choices, and show a running score, etc. Next to be built will be the training page. The other pages can be placeholders to fill in as their functionality develops. 
+
+4. Develop the underlying training workflow(s), implementing and polishing on the web app only as the snags get worked out.
+
+
+That's the general idea.
+
+I'd like you to review the extant material, do research on the web (and especially at GitHub) for similar projects and how they were designed and coded, to use as inspiration for our own approach. Then, put together and propose a more detailed plan according to these general guidelines and ideas. At that point, we can discuss which next steps to take, what benchmarks to use to measure progress, and what the final end point will look like to know when we're done.
+
+Questions? Ask. Otherwise, please proceed with your deep research and build your "first pass" proposal.
+

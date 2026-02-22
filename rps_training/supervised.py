@@ -1,0 +1,270 @@
+from __future__ import annotations
+
+import pickle
+from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
+from random import Random
+from typing import Any
+
+import numpy as np
+from rps_storage.object_store import read_bytes, write_bytes
+
+try:
+    from sklearn.metrics import accuracy_score
+    from sklearn.neural_network import MLPClassifier
+    from sklearn.tree import DecisionTreeClassifier
+except Exception as exc:  # pragma: no cover
+    accuracy_score = None
+    MLPClassifier = None
+    DecisionTreeClassifier = None
+    SKLEARN_IMPORT_ERROR = str(exc)
+else:
+    SKLEARN_IMPORT_ERROR = None
+
+SKLEARN_AVAILABLE = DecisionTreeClassifier is not None and MLPClassifier is not None and accuracy_score is not None
+
+
+@dataclass(slots=True)
+class TrainConfig:
+    model_type: str = "decision_tree"
+    lookback: int = 5
+    test_size: float = 0.2
+    learning_rate: float = 0.001
+    hidden_layer_sizes: tuple[int, ...] = (64, 32)
+    epochs: int = 200
+    batch_size: int | str = "auto"
+    random_state: int = 42
+
+
+def training_readiness(rounds: list[dict], lookback: int, minimum_samples: int = 5) -> dict:
+    X, _, _ = build_dataset(rounds, lookback=lookback)
+    sample_count = int(len(X))
+    return {
+        "total_round_rows": int(len(rounds)),
+        "lookback": int(lookback),
+        "sample_count": sample_count,
+        "minimum_required_samples": int(minimum_samples),
+        "can_train": sample_count >= minimum_samples,
+        "sklearn_available": bool(SKLEARN_AVAILABLE),
+        "sklearn_import_error": SKLEARN_IMPORT_ERROR,
+    }
+
+
+class FrequencyModel:
+    def __init__(self, lookback: int) -> None:
+        self.lookback = lookback
+        self.context_counts: dict[tuple[int, ...], np.ndarray] = {}
+        self.global_counts = np.ones(3, dtype=float)
+
+    def fit(self, contexts: list[tuple[int, ...]], y: np.ndarray) -> "FrequencyModel":
+        for context, label in zip(contexts, y):
+            if context not in self.context_counts:
+                self.context_counts[context] = np.ones(3, dtype=float)
+            self.context_counts[context][int(label)] += 1.0
+            self.global_counts[int(label)] += 1.0
+        return self
+
+    def predict_context(self, context: tuple[int, ...]) -> int:
+        counts = self.context_counts.get(context, self.global_counts)
+        return int(np.argmax(counts))
+
+    def predict_contexts(self, contexts: list[tuple[int, ...]]) -> np.ndarray:
+        return np.asarray([self.predict_context(context) for context in contexts], dtype=int)
+
+
+def _one_hot(action: int) -> list[int]:
+    vec = [0, 0, 0]
+    vec[int(action)] = 1
+    return vec
+
+
+def build_dataset(rounds: list[dict], lookback: int) -> tuple[np.ndarray, np.ndarray, list[tuple[int, ...]]]:
+    if lookback <= 0:
+        raise ValueError("lookback must be positive")
+    rows = sorted(rounds, key=lambda row: (row["game_id"], row["session_index"], row["round_index"]))
+    X: list[list[float]] = []
+    y: list[int] = []
+    contexts: list[tuple[int, ...]] = []
+
+    current_group: list[dict] = []
+    current_key: tuple[int, int] | None = None
+
+    def consume_group(group: list[dict]) -> None:
+        for idx in range(lookback, len(group)):
+            window = group[idx - lookback : idx]
+            features: list[float] = []
+            context: list[int] = []
+            for step in window:
+                player_action = int(step["player_action"])
+                ai_action = int(step["ai_action"])
+                reward_delta = int(step["reward_delta"])
+                context.append(player_action)
+                features.extend(_one_hot(player_action))
+                features.extend(_one_hot(ai_action))
+                features.append(float(reward_delta))
+            X.append(features)
+            y.append(int(group[idx]["player_action"]))
+            contexts.append(tuple(context))
+
+    for row in rows:
+        key = (int(row["game_id"]), int(row["session_index"]))
+        if current_key is None:
+            current_key = key
+        if key != current_key:
+            consume_group(current_group)
+            current_group = []
+            current_key = key
+        current_group.append(row)
+    if current_group:
+        consume_group(current_group)
+
+    if not X:
+        return np.asarray([]), np.asarray([]), []
+    return np.asarray(X, dtype=float), np.asarray(y, dtype=int), contexts
+
+
+def _split(
+    X: np.ndarray,
+    y: np.ndarray,
+    contexts: list[tuple[int, ...]],
+    test_size: float,
+    random_state: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, list[tuple[int, ...]], list[tuple[int, ...]]]:
+    count = len(X)
+    indices = list(range(count))
+    rng = Random(random_state)
+    rng.shuffle(indices)
+    test_count = max(1, int(count * test_size))
+    train_count = max(1, count - test_count)
+    train_idx = indices[:train_count]
+    test_idx = indices[train_count:]
+    if not test_idx:
+        test_idx = train_idx[-1:]
+        train_idx = train_idx[:-1] or train_idx
+    X_train = X[train_idx]
+    y_train = y[train_idx]
+    X_test = X[test_idx]
+    y_test = y[test_idx]
+    ctx_train = [contexts[idx] for idx in train_idx]
+    ctx_test = [contexts[idx] for idx in test_idx]
+    return X_train, X_test, y_train, y_test, ctx_train, ctx_test
+
+
+def _majority_baseline(y_true: np.ndarray, y_train: np.ndarray) -> float:
+    if len(y_true) == 0:
+        return 0.0
+    majority = int(np.argmax(np.bincount(y_train if len(y_train) else y_true)))
+    return float(np.mean(y_true == majority))
+
+
+def train_model(rounds: list[dict], config: TrainConfig, artifact_path: str) -> dict[str, Any]:
+    X, y, contexts = build_dataset(rounds, lookback=config.lookback)
+    if len(X) < 5:
+        raise RuntimeError("Not enough training samples. Play more rounds before training.")
+    X_train, X_test, y_train, y_test, ctx_train, ctx_test = _split(
+        X,
+        y,
+        contexts,
+        test_size=config.test_size,
+        random_state=config.random_state,
+    )
+
+    model_type = config.model_type
+    if model_type == "decision_tree":
+        if DecisionTreeClassifier is None:
+            raise RuntimeError(
+                "scikit-learn is required for decision_tree training"
+                + (f". Import error: {SKLEARN_IMPORT_ERROR}" if SKLEARN_IMPORT_ERROR else "")
+            )
+        model = DecisionTreeClassifier(random_state=config.random_state)
+        model.fit(X_train, y_train)
+        pred_train = model.predict(X_train)
+        pred_test = model.predict(X_test)
+        train_acc = float(accuracy_score(y_train, pred_train)) if accuracy_score else float(np.mean(pred_train == y_train))
+        test_acc = float(accuracy_score(y_test, pred_test)) if accuracy_score else float(np.mean(pred_test == y_test))
+    elif model_type == "mlp":
+        if MLPClassifier is None:
+            raise RuntimeError(
+                "scikit-learn is required for mlp training"
+                + (f". Import error: {SKLEARN_IMPORT_ERROR}" if SKLEARN_IMPORT_ERROR else "")
+            )
+        model = MLPClassifier(
+            hidden_layer_sizes=config.hidden_layer_sizes,
+            learning_rate_init=config.learning_rate,
+            max_iter=config.epochs,
+            batch_size=config.batch_size,
+            random_state=config.random_state,
+        )
+        model.fit(X_train, y_train)
+        pred_train = model.predict(X_train)
+        pred_test = model.predict(X_test)
+        train_acc = float(accuracy_score(y_train, pred_train)) if accuracy_score else float(np.mean(pred_train == y_train))
+        test_acc = float(accuracy_score(y_test, pred_test)) if accuracy_score else float(np.mean(pred_test == y_test))
+    elif model_type == "frequency":
+        model = FrequencyModel(lookback=config.lookback).fit(ctx_train, y_train)
+        pred_train = model.predict_contexts(ctx_train)
+        pred_test = model.predict_contexts(ctx_test)
+        train_acc = float(np.mean(pred_train == y_train))
+        test_acc = float(np.mean(pred_test == y_test))
+    else:
+        raise ValueError(f"Unknown model_type: {model_type}")
+
+    metrics = {
+        "sample_count": int(len(X)),
+        "train_samples": int(len(X_train)),
+        "test_samples": int(len(X_test)),
+        "train_accuracy": train_acc,
+        "test_accuracy": test_acc,
+        "baseline_accuracy": _majority_baseline(y_test, y_train),
+        "lookback": int(config.lookback),
+        "epochs": int(config.epochs),
+        "batch_size": config.batch_size,
+    }
+    artifact = {
+        "schema_version": 1,
+        "created_at": datetime.now(UTC).isoformat(),
+        "config": asdict(config),
+        "model_type": model_type,
+        "model": model,
+    }
+    payload = pickle.dumps(artifact)
+    write_bytes(artifact_path, payload, content_type="application/octet-stream")
+    metrics["artifact_path"] = artifact_path
+    return metrics
+
+
+def load_artifact(path: str) -> dict[str, Any]:
+    payload = read_bytes(path)
+    return pickle.loads(payload)
+
+
+def _history_features(history: list[dict], lookback: int) -> tuple[np.ndarray, tuple[int, ...]] | None:
+    if len(history) < lookback:
+        return None
+    window = history[-lookback:]
+    features: list[float] = []
+    context: list[int] = []
+    for step in window:
+        player_action = int(step["player_action"])
+        ai_action = int(step["ai_action"])
+        reward_delta = int(step["reward_delta"])
+        context.append(player_action)
+        features.extend(_one_hot(player_action))
+        features.extend(_one_hot(ai_action))
+        features.append(float(reward_delta))
+    return np.asarray(features, dtype=float), tuple(context)
+
+
+def predict_player_action(artifact: dict[str, Any], history: list[dict]) -> int | None:
+    config = artifact.get("config", {})
+    lookback = int(config.get("lookback", 5))
+    encoded = _history_features(history, lookback=lookback)
+    if encoded is None:
+        return None
+    features, context = encoded
+    model_type = artifact.get("model_type")
+    model = artifact.get("model")
+    if model_type == "frequency":
+        return int(model.predict_context(context))
+    prediction = model.predict(np.asarray([features]))[0]
+    return int(prediction)

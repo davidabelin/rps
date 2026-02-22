@@ -1,0 +1,336 @@
+(function () {
+  "use strict";
+
+  const trainForm = document.getElementById("trainForm");
+  const modelTypeInput = trainForm.querySelector('[name="model_type"]');
+  const lookbackInput = trainForm.querySelector('[name="lookback"]');
+  const hiddenLayer1Input = trainForm.querySelector('[name="hidden_layer_1"]');
+  const hiddenLayer2Input = trainForm.querySelector('[name="hidden_layer_2"]');
+  const batchSizeInput = trainForm.querySelector('[name="batch_size"]');
+  const epochsInput = trainForm.querySelector('[name="epochs"]');
+  const mlpHint = document.getElementById("mlpHint");
+  const readinessStatus = document.getElementById("readinessStatus");
+  const jobStatus = document.getElementById("jobStatus");
+  const jobProgress = document.getElementById("jobProgress");
+  const jobMetrics = document.getElementById("jobMetrics");
+  const jobChartLine = document.getElementById("jobChartLine");
+  const modelTableBody = document.getElementById("modelTableBody");
+  const refreshModelsBtn = document.getElementById("refreshModelsBtn");
+  const benchmarkAgentSelect = document.getElementById("benchmarkAgentSelect");
+  const benchmarkRoundsInput = document.getElementById("benchmarkRoundsInput");
+  const runBenchmarkBtn = document.getElementById("runBenchmarkBtn");
+  const benchmarkOutput = document.getElementById("benchmarkOutput");
+
+  let activeJobId = null;
+  let pollTimer = null;
+  let eventSource = null;
+  let chartPoints = [];
+
+  function setStatus(text) {
+    jobStatus.textContent = text;
+  }
+
+  function setProgress(value) {
+    const pct = Math.max(0, Math.min(100, Math.round((value || 0) * 100)));
+    jobProgress.style.width = `${pct}%`;
+  }
+
+  function toPayload(formData) {
+    const batchRaw = String(formData.get("batch_size")).trim();
+    const hidden1 = Number(formData.get("hidden_layer_1"));
+    const hidden2 = Number(formData.get("hidden_layer_2"));
+    const hiddenLayers = [hidden1, hidden2].filter((value) => Number.isFinite(value) && value > 0);
+    return {
+      model_type: formData.get("model_type"),
+      lookback: Number(formData.get("lookback")),
+      learning_rate: Number(formData.get("learning_rate")),
+      hidden_layer_sizes: hiddenLayers.length ? hiddenLayers : [64, 32],
+      batch_size: batchRaw === "" ? "auto" : batchRaw,
+      epochs: Number(formData.get("epochs")),
+      test_size: 0.2,
+      random_state: 42,
+    };
+  }
+
+  function renderMetrics(job) {
+    if (!job.metrics) {
+      jobMetrics.textContent = "No metrics yet.";
+      return;
+    }
+    jobMetrics.textContent = JSON.stringify(job.metrics, null, 2);
+  }
+
+  function updateMlpHint() {
+    const isMlp = modelTypeInput.value === "mlp";
+    if (isMlp) {
+      mlpHint.textContent = "MLP mode: hidden layers, batch size, and epochs are used.";
+    } else {
+      mlpHint.textContent = "Non-MLP mode: hidden layers, batch size, and epochs are ignored.";
+    }
+  }
+
+  async function fetchReadiness() {
+    const lookback = Number(lookbackInput.value || 5);
+    const response = await fetch(`/api/v1/training/readiness?lookback=${encodeURIComponent(lookback)}`);
+    const body = await response.json();
+    if (!response.ok) {
+      readinessStatus.textContent = `Readiness check failed: ${body.error || "unknown error"}`;
+      return;
+    }
+    const info = body.readiness;
+    let text = `Samples: ${info.sample_count} (minimum ${info.minimum_required_samples}) from ${info.total_round_rows} rounds.`;
+    text += info.can_train ? " Ready to train." : " Need more rounds.";
+    if (!info.sklearn_available) {
+      text += ` scikit-learn unavailable: ${info.sklearn_import_error || "import failed"}.`;
+    }
+    readinessStatus.textContent = text;
+  }
+
+  function renderChart() {
+    if (!chartPoints.length) {
+      jobChartLine.setAttribute("points", "");
+      return;
+    }
+    const width = 300;
+    const height = 90;
+    const maxIndex = Math.max(1, chartPoints.length - 1);
+    const points = chartPoints.map((point, index) => {
+      const x = (index / maxIndex) * width;
+      const y = height - point * height;
+      return `${x.toFixed(2)},${y.toFixed(2)}`;
+    });
+    jobChartLine.setAttribute("points", points.join(" "));
+  }
+
+  function pushChartPoint(progressValue) {
+    chartPoints.push(Math.max(0, Math.min(1, Number(progressValue || 0))));
+    if (chartPoints.length > 50) {
+      chartPoints = chartPoints.slice(chartPoints.length - 50);
+    }
+    renderChart();
+  }
+
+  function resetChart() {
+    chartPoints = [];
+    renderChart();
+  }
+
+  async function fetchAgentsForBenchmark() {
+    const response = await fetch("/api/v1/agents");
+    const body = await response.json();
+    if (!response.ok) {
+      throw new Error(body.error || "Failed to fetch agents");
+    }
+    benchmarkAgentSelect.innerHTML = "";
+    const seen = new Set();
+    const addOption = (value, label) => {
+      if (seen.has(value)) {
+        return;
+      }
+      seen.add(value);
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = label;
+      benchmarkAgentSelect.appendChild(option);
+    };
+    addOption("active_model", "active_model");
+    body.agents.forEach((agent) => {
+      addOption(agent.name, `${agent.name} (${agent.type})`);
+    });
+  }
+
+  async function runBenchmark() {
+    const payload = {
+      agent: benchmarkAgentSelect.value,
+      rounds: Number(benchmarkRoundsInput.value || 1000),
+      seed: 7,
+    };
+    benchmarkOutput.textContent = "Running benchmark...";
+    const response = await fetch("/api/v1/benchmarks/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      benchmarkOutput.textContent = `Benchmark error: ${body.error || "unknown error"}`;
+      return;
+    }
+    benchmarkOutput.textContent = JSON.stringify(body.benchmark, null, 2);
+  }
+
+  async function fetchModels() {
+    const response = await fetch("/api/v1/models");
+    const body = await response.json();
+    if (!response.ok) {
+      throw new Error(body.error || "Failed to fetch models");
+    }
+    modelTableBody.innerHTML = "";
+    body.models.forEach((model) => {
+      const tr = document.createElement("tr");
+      const accuracy = model.metrics && model.metrics.test_accuracy !== undefined
+        ? Number(model.metrics.test_accuracy).toFixed(3)
+        : "-";
+      tr.innerHTML = `
+        <td>${model.id}</td>
+        <td>${model.name}</td>
+        <td>${model.model_type}</td>
+        <td>${accuracy}</td>
+        <td>${model.is_active ? "yes" : "no"}</td>
+        <td><button class="btn btn-secondary" data-model-id="${model.id}">Activate</button></td>
+      `;
+      modelTableBody.appendChild(tr);
+    });
+    Array.from(modelTableBody.querySelectorAll("button[data-model-id]")).forEach((button) => {
+      button.addEventListener("click", async () => {
+        const modelId = Number(button.getAttribute("data-model-id"));
+        await activateModel(modelId);
+      });
+    });
+  }
+
+  async function activateModel(modelId) {
+    const response = await fetch(`/api/v1/models/${modelId}/activate`, { method: "POST" });
+    const body = await response.json();
+    if (!response.ok) {
+      throw new Error(body.error || "Activation failed");
+    }
+    setStatus(`Activated model ${body.model.name}`);
+    await fetchModels();
+  }
+
+  async function pollJobOnce() {
+    if (!activeJobId) {
+      return;
+    }
+    const response = await fetch(`/api/v1/training/jobs/${activeJobId}`);
+    const body = await response.json();
+    if (!response.ok) {
+      setStatus(`Job poll failed: ${body.error || "unknown error"}`);
+      return;
+    }
+    const job = body.job;
+    setStatus(`Job ${job.id} status: ${job.status}`);
+    setProgress(job.progress || 0);
+    pushChartPoint(job.progress || 0);
+    renderMetrics(job);
+    if (job.status === "completed" || job.status === "failed") {
+      if (pollTimer) {
+        window.clearInterval(pollTimer);
+        pollTimer = null;
+      }
+      activeJobId = null;
+      if (job.status === "failed" && job.error_message) {
+        jobMetrics.textContent = `${jobMetrics.textContent}\n\nError: ${job.error_message}`;
+      }
+      await fetchModels();
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+    }
+  }
+
+  function startJobEventStream(jobId) {
+    if (!window.EventSource) {
+      return false;
+    }
+    if (eventSource) {
+      eventSource.close();
+    }
+    eventSource = new EventSource(`/api/v1/training/jobs/${jobId}/events`);
+    eventSource.addEventListener("update", async (event) => {
+      const job = JSON.parse(event.data);
+      setStatus(`Job ${job.id} status: ${job.status}`);
+      setProgress(job.progress || 0);
+      pushChartPoint(job.progress || 0);
+      renderMetrics(job);
+      if (job.status === "completed" || job.status === "failed") {
+        if (job.status === "failed" && job.error_message) {
+          jobMetrics.textContent = `${jobMetrics.textContent}\n\nError: ${job.error_message}`;
+        }
+        eventSource.close();
+        eventSource = null;
+        activeJobId = null;
+        await fetchModels();
+        await fetchReadiness();
+      }
+    });
+    eventSource.addEventListener("end", () => {
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+      activeJobId = null;
+      fetchModels().catch(() => null);
+      fetchReadiness().catch(() => null);
+    });
+    eventSource.onerror = () => {
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+      if (!pollTimer && activeJobId) {
+        pollTimer = window.setInterval(pollJobOnce, 1000);
+      }
+    };
+    return true;
+  }
+
+  trainForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const payload = toPayload(new FormData(trainForm));
+    const response = await fetch("/api/v1/training/jobs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      setStatus(`Failed to create job: ${body.error || "unknown error"}`);
+      return;
+    }
+    activeJobId = body.job.id;
+    setStatus(`Training job ${activeJobId} queued`);
+    setProgress(0);
+    renderMetrics({ metrics: null });
+    resetChart();
+    pushChartPoint(0);
+    if (pollTimer) {
+      window.clearInterval(pollTimer);
+      pollTimer = null;
+    }
+    const usingSse = startJobEventStream(activeJobId);
+    if (!usingSse) {
+      pollTimer = window.setInterval(pollJobOnce, 1000);
+      await pollJobOnce();
+    }
+  });
+
+  modelTypeInput.addEventListener("change", () => {
+    updateMlpHint();
+  });
+
+  lookbackInput.addEventListener("change", () => {
+    fetchReadiness().catch((err) => {
+      readinessStatus.textContent = `Readiness check failed: ${String(err)}`;
+    });
+  });
+
+  refreshModelsBtn.addEventListener("click", () => {
+    fetchModels().catch((err) => {
+      setStatus(`Model refresh failed: ${String(err)}`);
+    });
+  });
+
+  runBenchmarkBtn.addEventListener("click", () => {
+    runBenchmark().catch((err) => {
+      benchmarkOutput.textContent = `Benchmark error: ${String(err)}`;
+    });
+  });
+
+  Promise.all([fetchModels(), fetchAgentsForBenchmark(), fetchReadiness()]).catch((err) => {
+    setStatus(`Unable to initialize training page: ${String(err)}`);
+  });
+  updateMlpHint();
+})();

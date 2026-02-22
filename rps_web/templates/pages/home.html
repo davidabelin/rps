@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}RPS Agent Lab | Home{% endblock %}
+{% block content %}
+<section class="hero">
+  <p class="eyebrow">Flask + Agent Lab + Training Pipelines</p>
+  <h1>Build, benchmark, and deploy Rock-Paper-Scissors AI agents.</h1>
+  <p class="lede">
+    Play against heuristic or trained agents, generate datasets from real matches,
+    and train new models through the web UI or scripts.
+  </p>
+  <div class="hero-actions">
+    <a class="btn btn-primary" href="{{ url_for('main.play_page') }}">Start Playing</a>
+    <a class="btn btn-secondary" href="{{ url_for('main.training_page') }}">Open Training Lab</a>
+  </div>
+</section>
+
+<section class="grid">
+  <article class="card">
+    <h2>Human vs AI</h2>
+    <p>Play with animated reveal, running score, and selectable AI opponents.</p>
+  </article>
+  <article class="card">
+    <h2>Dataset + Models</h2>
+    <p>Round logs go to SQLite + JSONL, then become supervised training data.</p>
+  </article>
+  <article class="card">
+    <h2>Async Training</h2>
+    <p>Training jobs run in a background worker pattern aligned with App Engine deployment.</p>
+  </article>
+</section>
+{% endblock %}
