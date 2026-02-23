@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""Supervised learning pipeline for player-action prediction models."""
+
 import pickle
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
@@ -26,6 +28,8 @@ SKLEARN_AVAILABLE = DecisionTreeClassifier is not None and MLPClassifier is not 
 
 @dataclass(slots=True)
 class TrainConfig:
+    """Configuration for supervised training runs."""
+
     model_type: str = "decision_tree"
     lookback: int = 5
     test_size: float = 0.2
@@ -37,6 +41,23 @@ class TrainConfig:
 
 
 def training_readiness(rounds: list[dict], lookback: int, minimum_samples: int = 5) -> dict:
+    """Summarize whether current round data can support training.
+
+    Parameters
+    ----------
+    rounds : list[dict]
+        Raw round rows from repository.
+    lookback : int
+        Context window size used to build features.
+    minimum_samples : int, default=5
+        Minimum feature rows required to allow training.
+
+    Returns
+    -------
+    dict
+        Readiness diagnostics used by training UI.
+    """
+
     X, _, _ = build_dataset(rounds, lookback=lookback)
     sample_count = int(len(X))
     return {
@@ -51,12 +72,16 @@ def training_readiness(rounds: list[dict], lookback: int, minimum_samples: int =
 
 
 class FrequencyModel:
+    """Context-frequency baseline used as a lightweight non-sklearn model."""
+
     def __init__(self, lookback: int) -> None:
         self.lookback = lookback
         self.context_counts: dict[tuple[int, ...], np.ndarray] = {}
         self.global_counts = np.ones(3, dtype=float)
 
     def fit(self, contexts: list[tuple[int, ...]], y: np.ndarray) -> "FrequencyModel":
+        """Fit context->label counts with Laplace-style smoothing."""
+
         for context, label in zip(contexts, y):
             if context not in self.context_counts:
                 self.context_counts[context] = np.ones(3, dtype=float)
@@ -65,20 +90,42 @@ class FrequencyModel:
         return self
 
     def predict_context(self, context: tuple[int, ...]) -> int:
+        """Predict the most likely label for one context window."""
+
         counts = self.context_counts.get(context, self.global_counts)
         return int(np.argmax(counts))
 
     def predict_contexts(self, contexts: list[tuple[int, ...]]) -> np.ndarray:
+        """Vectorized prediction over multiple context windows."""
+
         return np.asarray([self.predict_context(context) for context in contexts], dtype=int)
 
 
 def _one_hot(action: int) -> list[int]:
+    """One-hot encode action id into length-3 feature vector."""
+
     vec = [0, 0, 0]
     vec[int(action)] = 1
     return vec
 
 
 def build_dataset(rounds: list[dict], lookback: int) -> tuple[np.ndarray, np.ndarray, list[tuple[int, ...]]]:
+    """Construct supervised feature matrix and labels from game rounds.
+
+    Parameters
+    ----------
+    rounds : list[dict]
+        Round rows ordered or unordered across games/sessions.
+    lookback : int
+        Number of prior rounds used to predict the next player action.
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray, list[tuple[int, ...]]]
+        ``X`` features, ``y`` labels, and symbolic context tuples used by the
+        frequency baseline.
+    """
+
     if lookback <= 0:
         raise ValueError("lookback must be positive")
     rows = sorted(rounds, key=lambda row: (row["game_id"], row["session_index"], row["round_index"]))
@@ -130,6 +177,8 @@ def _split(
     test_size: float,
     random_state: int,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, list[tuple[int, ...]], list[tuple[int, ...]]]:
+    """Deterministically split dataset into train/test partitions."""
+
     count = len(X)
     indices = list(range(count))
     rng = Random(random_state)
@@ -151,6 +200,8 @@ def _split(
 
 
 def _majority_baseline(y_true: np.ndarray, y_train: np.ndarray) -> float:
+    """Compute majority-class baseline accuracy for comparison metrics."""
+
     if len(y_true) == 0:
         return 0.0
     majority = int(np.argmax(np.bincount(y_train if len(y_train) else y_true)))
@@ -158,6 +209,23 @@ def _majority_baseline(y_true: np.ndarray, y_train: np.ndarray) -> float:
 
 
 def train_model(rounds: list[dict], config: TrainConfig, artifact_path: str) -> dict[str, Any]:
+    """Train one supervised model and persist artifact/metrics.
+
+    Parameters
+    ----------
+    rounds : list[dict]
+        Training round history from repository.
+    config : TrainConfig
+        Model/training hyperparameters.
+    artifact_path : str
+        Output destination path (local or ``gs://``).
+
+    Returns
+    -------
+    dict[str, Any]
+        Metrics summary including artifact path.
+    """
+
     X, y, contexts = build_dataset(rounds, lookback=config.lookback)
     if len(X) < 5:
         raise RuntimeError("Not enough training samples. Play more rounds before training.")
@@ -234,11 +302,15 @@ def train_model(rounds: list[dict], config: TrainConfig, artifact_path: str) -> 
 
 
 def load_artifact(path: str) -> dict[str, Any]:
+    """Load serialized model artifact from local or object storage."""
+
     payload = read_bytes(path)
     return pickle.loads(payload)
 
 
 def _history_features(history: list[dict], lookback: int) -> tuple[np.ndarray, tuple[int, ...]] | None:
+    """Encode most recent history window into model input feature vector."""
+
     if len(history) < lookback:
         return None
     window = history[-lookback:]
@@ -256,6 +328,21 @@ def _history_features(history: list[dict], lookback: int) -> tuple[np.ndarray, t
 
 
 def predict_player_action(artifact: dict[str, Any], history: list[dict]) -> int | None:
+    """Predict the next player action from artifact + recent history.
+
+    Parameters
+    ----------
+    artifact : dict[str, Any]
+        Loaded model artifact.
+    history : list[dict]
+        Prior transitions in model-history format.
+
+    Returns
+    -------
+    int | None
+        Predicted action id, or ``None`` when history is shorter than lookback.
+    """
+
     config = artifact.get("config", {})
     lookback = int(config.get("lookback", 5))
     encoded = _history_features(history, lookback=lookback)

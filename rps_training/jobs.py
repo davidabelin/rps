@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""Asynchronous orchestration for supervised training jobs."""
+
 import json
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
@@ -16,6 +18,26 @@ except Exception:  # pragma: no cover
 
 
 class TrainingJobManager:
+    """Manage supervised training execution locally or via Cloud Tasks.
+
+    Parameters
+    ----------
+    repository : RPSRepository
+        Persistence backend for jobs/models.
+    models_dir : str
+        Local directory or ``gs://`` prefix where model artifacts are written.
+    max_workers : int, default=2
+        Thread pool workers when ``execution_mode='local'``.
+    execution_mode : str, default='local'
+        ``'local'`` for in-process execution, ``'task_queue'`` for Cloud Tasks.
+    task_project_id, task_location, task_queue, worker_url : str | None
+        Cloud Tasks routing parameters used in task-queue mode.
+    worker_token : str | None
+        Shared header token sent as ``X-Worker-Token``.
+    worker_service_account : str | None
+        Optional service account for OIDC-signed HTTP task dispatch.
+    """
+
     def __init__(
         self,
         repository: RPSRepository,
@@ -43,6 +65,19 @@ class TrainingJobManager:
         self.executor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="rps-train")
 
     def submit_job(self, payload: dict) -> dict:
+        """Persist and schedule a training job.
+
+        Parameters
+        ----------
+        payload : dict
+            User/API training options.
+
+        Returns
+        -------
+        dict
+            Latest training job row after enqueue/submit attempt.
+        """
+
         config = self._config_from_payload(payload)
         job = self.repository.create_training_job(config.model_type, payload)
         job_id = int(job["id"])
@@ -61,6 +96,8 @@ class TrainingJobManager:
         return self.repository.get_training_job(job_id) or job
 
     def _config_from_payload(self, payload: dict) -> TrainConfig:
+        """Normalize API payload into ``TrainConfig``."""
+
         hidden_layer_sizes = payload.get("hidden_layer_sizes", [64, 32])
         if isinstance(hidden_layer_sizes, str):
             hidden_layer_sizes = [int(token.strip()) for token in hidden_layer_sizes.split(",") if token.strip()]
@@ -80,6 +117,8 @@ class TrainingJobManager:
         )
 
     def _enqueue_job(self, job_id: int) -> None:
+        """Create one Cloud Tasks HTTP task for a training job id."""
+
         if tasks_v2 is None:
             raise RuntimeError("google-cloud-tasks is required for task_queue execution mode")
         if not self.task_project_id or not self.task_location or not self.task_queue or not self.worker_url:
@@ -107,6 +146,8 @@ class TrainingJobManager:
         client.create_task(request={"parent": parent, "task": task})
 
     def run_job_by_id(self, job_id: int) -> None:
+        """Execute a queued training job synchronously by id."""
+
         job = self.repository.get_training_job(job_id)
         if job is None:
             raise KeyError(f"Training job not found: {job_id}")
@@ -119,6 +160,8 @@ class TrainingJobManager:
         self._run_job(job_id, config)
 
     def _run_job(self, job_id: int, config: TrainConfig) -> None:
+        """Run full supervised training lifecycle for one job."""
+
         try:
             self.repository.update_training_job(job_id, status="running", progress=0.05)
             rounds = self.repository.list_rounds_for_training()
@@ -146,4 +189,6 @@ class TrainingJobManager:
             self.repository.update_training_job(job_id, status="failed", progress=1.0, error_message=str(exc))
 
     def shutdown(self) -> None:
+        """Release local threadpool resources."""
+
         self.executor.shutdown(wait=False)

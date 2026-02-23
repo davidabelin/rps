@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""Gameplay API routes for human-vs-agent interactions."""
+
 from datetime import UTC, datetime
 
 from flask import Blueprint, current_app, jsonify, request
@@ -16,14 +18,20 @@ game_bp = Blueprint("game_api", __name__, url_prefix="/api/v1")
 
 
 def _repo():
+    """Return storage repository extension."""
+
     return current_app.extensions["repository"]
 
 
 def _runtime():
+    """Return in-memory game runtime cache extension."""
+
     return current_app.extensions["game_runtime"]
 
 
 def _serialize_game(game: dict) -> dict:
+    """Serialize database game row into API response shape."""
+
     return {
         "game_id": int(game["id"]),
         "agent_name": game["agent_name"],
@@ -37,6 +45,20 @@ def _serialize_game(game: dict) -> dict:
 
 
 def _resolve_agent_factory_and_signature(game: dict):
+    """Resolve agent factory and cache signature for a game row.
+
+    Parameters
+    ----------
+    game : dict
+        Game row from repository.
+
+    Returns
+    -------
+    tuple[callable, str]
+        Factory callable and stable signature string used for runtime cache
+        invalidation when active model changes.
+    """
+
     if game["agent_name"] == "active_model":
         model_record = _repo().get_active_model()
         if model_record is None:
@@ -49,6 +71,15 @@ def _resolve_agent_factory_and_signature(game: dict):
 
 
 def _should_write_round_event() -> bool:
+    """Decide whether per-round event log files should be written.
+
+    Returns
+    -------
+    bool
+        ``True`` when round event logging is enabled by configuration and the
+        selected storage mode is appropriate for per-round writes.
+    """
+
     mode = str(current_app.config.get("ROUND_EVENT_LOGGING_MODE", "auto")).strip().lower()
     if mode in {"off", "disabled", "false", "0", "none", "db_only"}:
         return False
@@ -59,6 +90,19 @@ def _should_write_round_event() -> bool:
 
 
 def _load_runtime_state(game: dict) -> GameRuntimeState:
+    """Load or build a low-latency runtime state for a game session.
+
+    Parameters
+    ----------
+    game : dict
+        Game row from repository.
+
+    Returns
+    -------
+    GameRuntimeState
+        Cached or newly hydrated runtime state.
+    """
+
     game_id = int(game["id"])
     session_index = int(game["session_index"])
     agent_factory, signature = _resolve_agent_factory_and_signature(game)
@@ -85,6 +129,8 @@ def _load_runtime_state(game: dict) -> GameRuntimeState:
 
 @game_bp.get("/agents")
 def list_agents():
+    """List playable agents available to UI/API clients."""
+
     specs = list_agent_specs()
     models = _repo().list_models(limit=1)
     payload = [
@@ -108,6 +154,8 @@ def list_agents():
 
 @game_bp.post("/games")
 def create_game():
+    """Create a new game session with selected agent/model."""
+
     payload = request.get_json(silent=True) or {}
     agent_name = str(payload.get("agent", current_app.config["DEFAULT_AGENT"]))
     available = {spec.name for spec in list_agent_specs()}
@@ -122,6 +170,8 @@ def create_game():
 
 @game_bp.get("/games/<int:game_id>")
 def get_game(game_id: int):
+    """Return current score/state for one game id."""
+
     game = _repo().get_game(game_id)
     if game is None:
         return jsonify({"error": "Game not found."}), 404
@@ -130,6 +180,19 @@ def get_game(game_id: int):
 
 @game_bp.post("/games/<int:game_id>/round")
 def play_round(game_id: int):
+    """Play one round for the selected game and persist the outcome.
+
+    Parameters
+    ----------
+    game_id : int
+        Target game identifier.
+
+    Returns
+    -------
+    flask.Response
+        JSON response with updated game score and round result payload.
+    """
+
     payload = request.get_json(silent=True) or {}
     if "action" not in payload:
         return jsonify({"error": "Request body must include 'action'."}), 400
@@ -214,6 +277,8 @@ def play_round(game_id: int):
 
 @game_bp.post("/games/<int:game_id>/reset")
 def reset_game(game_id: int):
+    """Reset a game score while preserving historical rounds."""
+
     updated_game = _repo().reset_game(game_id)
     if updated_game is None:
         return jsonify({"error": "Game not found."}), 404

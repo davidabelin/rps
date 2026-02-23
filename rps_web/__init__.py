@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""Flask application factory and extension wiring for the RPS web app."""
+
 import os
 from pathlib import Path
 
@@ -11,6 +13,20 @@ from rps_web.runtime import GameRuntimeCache
 
 
 def create_app(config: dict | None = None) -> Flask:
+    """Create and configure the Flask application instance.
+
+    Parameters
+    ----------
+    config : dict | None, optional
+        Optional override map for tests/local customization.
+
+    Returns
+    -------
+    Flask
+        Fully configured Flask app with repositories, job managers, and
+        blueprints registered.
+    """
+
     root = Path(__file__).resolve().parents[1]
     data_dir = root / "data"
     app = Flask(
