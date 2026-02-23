@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""Registry and factory functions for heuristic RPS agents."""
+
 from dataclasses import dataclass
 from typing import Callable
 
@@ -16,12 +18,16 @@ from rps_agents.heuristic.opponent_transition import OpponentTransitionMatrixAge
 
 @dataclass(frozen=True)
 class AgentSpec:
+    """Metadata descriptor for one registered heuristic agent."""
+
     name: str
     description: str
     factory: Callable[[], AgentProtocol]
 
 
 def _build_specs() -> dict[str, AgentSpec]:
+    """Build static heuristic-agent registry."""
+
     return {
         "rock": AgentSpec("rock", "Always play rock.", lambda: ConstantAgent("rock", 0)),
         "paper": AgentSpec("paper", "Always play paper.", lambda: ConstantAgent("paper", 1)),
@@ -66,10 +72,14 @@ AGENT_SPECS = _build_specs()
 
 
 def list_agent_specs() -> list[AgentSpec]:
+    """Return all registered heuristic specs sorted by name."""
+
     return [AGENT_SPECS[name] for name in sorted(AGENT_SPECS.keys())]
 
 
 def build_heuristic_agent(name: str) -> AgentProtocol:
+    """Instantiate one heuristic agent by registry name."""
+
     if name not in AGENT_SPECS:
         raise KeyError(f"Unknown heuristic agent: {name}")
     return AGENT_SPECS[name].factory()

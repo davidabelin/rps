@@ -1,5 +1,14 @@
 from __future__ import annotations
 
+"""Repository layer for app metadata using SQLite or PostgreSQL via SQLAlchemy.
+
+The repository exposes dict-based CRUD helpers consumed by web routes and job
+managers. It supports:
+
+- local SQLite paths for development/tests
+- SQL database URLs (Cloud SQL PostgreSQL in production)
+"""
+
 import json
 from datetime import UTC, datetime
 from pathlib import Path
@@ -12,21 +21,37 @@ from sqlalchemy.exc import DatabaseError
 
 
 def utcnow_iso() -> str:
+    """Return timezone-aware UTC timestamp string."""
+
     return datetime.now(UTC).isoformat()
 
 
 def _looks_like_database_url(value: str) -> bool:
+    """Best-effort check for SQLAlchemy-style DB URLs."""
+
     return "://" in str(value)
 
 
 def _to_sqlite_url(path_value: str) -> str:
+    """Convert filesystem path into SQLAlchemy SQLite URL."""
+
     path = Path(path_value).resolve()
     path.parent.mkdir(parents=True, exist_ok=True)
     return f"sqlite+pysqlite:///{path.as_posix()}"
 
 
 class RPSRepository:
+    """Persistence facade for games, rounds, jobs, and models tables.
+
+    Parameters
+    ----------
+    db_target : str
+        Local SQLite path or SQLAlchemy URL.
+    """
+
     def __init__(self, db_target: str) -> None:
+        """Initialize engine, dialect metadata, and synchronization lock."""
+
         self._lock = RLock()
         target = str(db_target).strip()
         if not target:
@@ -38,12 +63,16 @@ class RPSRepository:
         self._dialect = self.engine.dialect.name
 
     def _run_script(self, script: str) -> None:
+        """Execute semicolon-delimited SQL script statement-by-statement."""
+
         statements = [part.strip() for part in script.split(";") if part.strip()]
         with self.engine.begin() as conn:
             for statement in statements:
                 conn.execute(text(statement))
 
     def init_schema(self) -> None:
+        """Create required tables/indexes for the active dialect."""
+
         sqlite_schema = """
             PRAGMA foreign_keys = ON;
 
@@ -203,12 +232,21 @@ class RPSRepository:
 
     @staticmethod
     def _first_or_none(rows: MappingResult) -> dict | None:
+        """Return first mapping row as ``dict`` or ``None``."""
+
         row = rows.first()
         if row is None:
             return None
         return dict(row)
 
     def _insert_and_fetch(self, insert_sql: str, params: dict[str, Any], table_name: str) -> dict:
+        """Insert one row and fetch inserted record across dialects.
+
+        Notes
+        -----
+        Uses ``RETURNING`` when available, with safe fallbacks for SQLite.
+        """
+
         returning_sql = f"{insert_sql} RETURNING *"
         with self._lock:
             with self.engine.begin() as conn:
@@ -230,6 +268,8 @@ class RPSRepository:
                 return row or {}
 
     def create_game(self, agent_name: str) -> dict:
+        """Create a new game row initialized to zero score."""
+
         now = utcnow_iso()
         return self._insert_and_fetch(
             """
@@ -241,6 +281,8 @@ class RPSRepository:
         )
 
     def get_game(self, game_id: int) -> dict | None:
+        """Fetch one game row by id."""
+
         with self.engine.begin() as conn:
             return self._first_or_none(conn.execute(text("SELECT * FROM games WHERE id = :id"), {"id": game_id}).mappings())
 
@@ -252,6 +294,8 @@ class RPSRepository:
         score_ai: int,
         score_ties: int,
     ) -> dict:
+        """Update rolling game score counters."""
+
         now = utcnow_iso()
         with self._lock:
             with self.engine.begin() as conn:
@@ -277,6 +321,8 @@ class RPSRepository:
         return row or {}
 
     def reset_game(self, game_id: int) -> dict | None:
+        """Start a new session for an existing game id."""
+
         game = self.get_game(game_id)
         if not game:
             return None
@@ -308,6 +354,8 @@ class RPSRepository:
         outcome: str,
         reward_delta: int,
     ) -> dict:
+        """Insert one persisted round row."""
+
         now = utcnow_iso()
         return self._insert_and_fetch(
             """
@@ -329,6 +377,8 @@ class RPSRepository:
         )
 
     def list_rounds(self, game_id: int, session_index: int | None = None) -> list[dict]:
+        """List rounds for a game, optionally constrained to one session."""
+
         query = """
             SELECT * FROM rounds
             WHERE game_id = :game_id
@@ -343,6 +393,8 @@ class RPSRepository:
         return [dict(row) for row in rows]
 
     def list_rounds_for_training(self) -> list[dict]:
+        """List all rounds in deterministic order for dataset building."""
+
         with self.engine.begin() as conn:
             rows = conn.execute(
                 text(
@@ -356,6 +408,8 @@ class RPSRepository:
         return [dict(row) for row in rows]
 
     def create_training_job(self, model_type: str, params: dict) -> dict:
+        """Create queued supervised training job record."""
+
         now = utcnow_iso()
         return self._insert_and_fetch(
             """
@@ -377,6 +431,8 @@ class RPSRepository:
         error_message: str | None = None,
         model_id: int | None = None,
     ) -> dict | None:
+        """Patch mutable supervised-job fields and return latest row."""
+
         updates: list[str] = []
         params: dict[str, Any] = {}
         if status is not None:
@@ -406,17 +462,38 @@ class RPSRepository:
         return row
 
     def get_training_job(self, job_id: int) -> dict | None:
+        """Fetch supervised training job by id."""
+
         with self.engine.begin() as conn:
             return self._first_or_none(
                 conn.execute(text("SELECT * FROM training_jobs WHERE id = :id"), {"id": job_id}).mappings()
             )
 
     def list_training_jobs(self, limit: int = 100) -> list[dict]:
+        """List recent supervised training jobs (descending id)."""
+
         with self.engine.begin() as conn:
             rows = conn.execute(text("SELECT * FROM training_jobs ORDER BY id DESC LIMIT :limit"), {"limit": limit}).mappings().all()
         return [dict(row) for row in rows]
 
     def create_model(self, name: str, model_type: str, artifact_path: str, lookback: int, metrics: dict) -> dict:
+        """Create model metadata row and numeric metric rows.
+
+        Parameters
+        ----------
+        name : str
+            Display/version name.
+        model_type : str
+            Model family identifier.
+        artifact_path : str
+            Local/GCS artifact location.
+        lookback : int
+            Feature lookback window used for this model.
+        metrics : dict
+            Arbitrary metrics payload persisted as JSON; numeric values are also
+            split into ``model_metrics`` rows.
+        """
+
         now = utcnow_iso()
         with self._lock:
             with self.engine.begin() as conn:
@@ -485,21 +562,29 @@ class RPSRepository:
         return row or {}
 
     def list_models(self, limit: int = 200) -> list[dict]:
+        """List recent model records (descending id)."""
+
         with self.engine.begin() as conn:
             rows = conn.execute(text("SELECT * FROM models ORDER BY id DESC LIMIT :limit"), {"limit": limit}).mappings().all()
         return [dict(row) for row in rows]
 
     def get_model(self, model_id: int) -> dict | None:
+        """Fetch one model row by id."""
+
         with self.engine.begin() as conn:
             return self._first_or_none(conn.execute(text("SELECT * FROM models WHERE id = :id"), {"id": model_id}).mappings())
 
     def get_active_model(self) -> dict | None:
+        """Fetch currently active model row (latest active if multiple)."""
+
         with self.engine.begin() as conn:
             return self._first_or_none(
                 conn.execute(text("SELECT * FROM models WHERE is_active = 1 ORDER BY id DESC LIMIT 1")).mappings()
             )
 
     def activate_model(self, model_id: int) -> dict | None:
+        """Deactivate all models and activate one target model id."""
+
         with self._lock:
             with self.engine.begin() as conn:
                 conn.execute(text("UPDATE models SET is_active = 0"))
@@ -508,6 +593,8 @@ class RPSRepository:
         return row
 
     def create_rl_job(self, params: dict) -> dict:
+        """Create queued RL training job record."""
+
         now = utcnow_iso()
         return self._insert_and_fetch(
             """
@@ -529,6 +616,8 @@ class RPSRepository:
         error_message: str | None = None,
         model_id: int | None = None,
     ) -> dict | None:
+        """Patch mutable RL-job fields and return latest row."""
+
         updates: list[str] = []
         named: dict[str, Any] = {}
         if status is not None:
@@ -556,10 +645,14 @@ class RPSRepository:
         return row
 
     def get_rl_job(self, job_id: int) -> dict | None:
+        """Fetch RL job by id."""
+
         with self.engine.begin() as conn:
             return self._first_or_none(conn.execute(text("SELECT * FROM rl_jobs WHERE id = :id"), {"id": job_id}).mappings())
 
     def list_rl_jobs(self, limit: int = 100) -> list[dict]:
+        """List recent RL jobs (descending id)."""
+
         with self.engine.begin() as conn:
             rows = conn.execute(text("SELECT * FROM rl_jobs ORDER BY id DESC LIMIT :limit"), {"limit": limit}).mappings().all()
         return [dict(row) for row in rows]

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""Markov-style sequence predictor heuristic."""
+
 from collections import defaultdict
 
 import numpy as np
@@ -9,6 +11,14 @@ from rps_core.types import RoundObservation, RoundTransition
 
 
 class MarkovAgent(RNGMixin):
+    """Predict opponent continuation from mixed action sequence context.
+
+    Notes
+    -----
+    The internal table is periodically refreshed to avoid stale adaptation
+    during long games.
+    """
+
     name = "markov"
 
     def __init__(
@@ -18,6 +28,8 @@ class MarkovAgent(RNGMixin):
         deterministic_horizon: int = 500,
         mirror_horizon: int = 900,
     ) -> None:
+        """Configure Markov-history hyperparameters."""
+
         super().__init__()
         self.order = order
         self.refresh_interval = refresh_interval
@@ -27,11 +39,26 @@ class MarkovAgent(RNGMixin):
         self.action_seq: list[int] = []
 
     def reset(self, seed: int | None) -> None:
+        """Reset RNG and sequence statistics."""
+
         super().reset(seed)
         self.table = defaultdict(lambda: [1, 1, 1])
         self.action_seq = []
 
     def select_action(self, obs: RoundObservation) -> int:
+        """Select action from learned transition context.
+
+        Parameters
+        ----------
+        obs : RoundObservation
+            Current step information including last opponent move.
+
+        Returns
+        -------
+        int
+            Action id ``0..2``.
+        """
+
         if obs.step % self.refresh_interval == 0:
             self.table = defaultdict(lambda: [1, 1, 1])
             self.action_seq = []
@@ -67,4 +94,6 @@ class MarkovAgent(RNGMixin):
         return int(action)
 
     def observe(self, transition: RoundTransition) -> None:
+        """No-op: state updates occur inside ``select_action`` path."""
+
         return None

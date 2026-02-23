@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""Online decision-tree heuristic using rolling local/global features."""
+
 from dataclasses import dataclass
 
 import numpy as np
@@ -15,12 +17,16 @@ except Exception:  # pragma: no cover
 
 @dataclass
 class _Move:
+    """Internal move record structure (currently reserved/auxiliary)."""
+
     step: int
     action: int
     opp_action: int
 
 
 def _construct_local_features(rollouts: dict[str, list[int]]) -> np.ndarray:
+    """Build short-horizon handcrafted feature vector."""
+
     features = np.array([[step % k for step in rollouts["steps"]] for k in (2, 3, 5)], dtype=float)
     features = np.append(features, rollouts["steps"])
     features = np.append(features, rollouts["actions"])
@@ -29,6 +35,8 @@ def _construct_local_features(rollouts: dict[str, list[int]]) -> np.ndarray:
 
 
 def _construct_global_features(rollouts: dict[str, list[int]]) -> np.ndarray:
+    """Build long-horizon aggregate frequency feature vector."""
+
     features: list[float] = []
     for key in ("actions", "opp-actions"):
         for choice in range(3):
@@ -37,13 +45,25 @@ def _construct_global_features(rollouts: dict[str, list[int]]) -> np.ndarray:
 
 
 def _construct_features(short_stats: dict[str, list[int]], long_stats: dict[str, list[int]]) -> np.ndarray:
+    """Concatenate local + global feature blocks."""
+
     return np.concatenate([_construct_local_features(short_stats), _construct_global_features(long_stats)])
 
 
 class DecisionTreeHeuristicAgent(RNGMixin):
+    """Train a lightweight decision tree online during a single game.
+
+    Notes
+    -----
+    This is a heuristic model, not persisted supervised training. It updates
+    from transitions seen during one game session.
+    """
+
     name = "decision_tree"
 
     def __init__(self, window: int = 5, min_samples: int = 25, random_state: int = 42) -> None:
+        """Configure rolling window and minimum sample threshold."""
+
         super().__init__()
         self.window = window
         self.min_samples = min_samples
@@ -52,15 +72,21 @@ class DecisionTreeHeuristicAgent(RNGMixin):
         self.classifier = DecisionTreeClassifier(random_state=random_state) if DecisionTreeClassifier else None
 
     def reset(self, seed: int | None) -> None:
+        """Reset RNG and clear per-session rollout history."""
+
         super().reset(seed)
         self.rollouts_hist = {"steps": [], "actions": [], "opp-actions": []}
 
     def _update_rollouts(self, transition: RoundTransition) -> None:
+        """Append one transition into rollout buffers."""
+
         self.rollouts_hist["steps"].append(transition.round_index)
         self.rollouts_hist["actions"].append(transition.action)
         self.rollouts_hist["opp-actions"].append(transition.opponent_action)
 
     def select_action(self, obs: RoundObservation) -> int:
+        """Fit online decision tree and play counter to predicted opponent move."""
+
         if self.classifier is None:
             return self._rand_action()
         if obs.step <= self.min_samples + self.window:
@@ -93,4 +119,6 @@ class DecisionTreeHeuristicAgent(RNGMixin):
         return int((next_opp_action_pred + 1) % 3)
 
     def observe(self, transition: RoundTransition) -> None:
+        """Store current transition for future online fitting."""
+
         self._update_rollouts(transition)

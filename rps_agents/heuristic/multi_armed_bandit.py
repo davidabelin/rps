@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""Thompson-sampling ensemble over multiple heuristic predictors."""
+
 from collections import Counter
 from dataclasses import dataclass
 
@@ -18,6 +20,24 @@ def _sample_transition(
     init_value: float,
     max_history: int,
 ) -> int:
+    """Sample predicted next action from decayed transition counts.
+
+    Parameters
+    ----------
+    history : list[dict]
+        Sequence of previous move records.
+    key : str
+        Which action stream to model (``"opponent"`` or ``"action"``).
+    deterministic : bool
+        If ``True``, return argmax instead of stochastic sample.
+    decay : float
+        Exponential decay factor for old observations.
+    init_value : float
+        Prior count value for each transition bucket.
+    max_history : int
+        Maximum number of recent records used for runtime cost control.
+    """
+
     if len(history) > max_history:
         history = history[-max_history:]
     matrix = np.zeros((3, 3), dtype=float) + init_value
@@ -35,14 +55,26 @@ def _sample_transition(
 
 @dataclass
 class Candidate:
+    """Beta posterior parameters for one arm/predictor."""
+
     alpha: float = 1.0
     beta: float = 1.0
 
 
 class MultiArmedBanditAgent(RNGMixin):
+    """Choose among predictor arms with Thompson sampling.
+
+    Notes
+    -----
+    Each arm proposes an action; arm posteriors are updated from realized round
+    outcomes against the opponent.
+    """
+
     name = "multi_armed_bandit"
 
     def __init__(self, step_size: float = 2.0, decay_rate: float = 1.05, max_transition_history: int = 180) -> None:
+        """Initialize candidate arms and posterior state."""
+
         super().__init__()
         self.step_size = step_size
         self.decay_rate = decay_rate
@@ -66,6 +98,8 @@ class MultiArmedBanditAgent(RNGMixin):
         self._selected_agent = "mirror_0"
 
     def reset(self, seed: int | None) -> None:
+        """Reset RNG, history, and all arm posteriors."""
+
         super().reset(seed)
         self.history = []
         self._last_predictions = {}
@@ -73,6 +107,8 @@ class MultiArmedBanditAgent(RNGMixin):
         self.bandits = {name: Candidate() for name in self.bandits}
 
     def _predict(self, name: str) -> int:
+        """Return one arm's proposed action for the current history."""
+
         if not self.history:
             return self._rand_action()
         last = self.history[-1]
@@ -131,6 +167,8 @@ class MultiArmedBanditAgent(RNGMixin):
         return self._rand_action()
 
     def select_action(self, obs: RoundObservation) -> int:
+        """Sample arm scores and return action from highest sampled arm."""
+
         best_name = None
         best_value = -1.0
         self._last_predictions = {}
@@ -145,6 +183,8 @@ class MultiArmedBanditAgent(RNGMixin):
         return int(self._last_predictions[self._selected_agent])
 
     def observe(self, transition: RoundTransition) -> None:
+        """Update all arm posteriors from realized opponent action."""
+
         opponent_action = int(transition.opponent_action)
         for name, predicted in self._last_predictions.items():
             state = self.bandits[name]

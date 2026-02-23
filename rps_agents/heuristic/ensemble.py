@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""Ensemble heuristics that combine multiple voter agents."""
+
 from random import Random
 
 from rps_agents.heuristic.basic import CopyOpponentAgent, CounterReactionaryAgent, ReactionaryAgent, StatisticalAgent
@@ -10,9 +12,13 @@ from rps_core.types import RoundObservation, RoundTransition
 
 
 class RotatingEnsembleAgent:
+    """Randomly rotate among voter agents at prime-number intervals."""
+
     name = "rotating_ensemble"
 
     def __init__(self) -> None:
+        """Initialize voter pool and rotation schedule state."""
+
         self._rng = Random()
         self._primes = [7, 11, 13, 17, 19, 23, 29, 31]
         self._voters = [
@@ -28,6 +34,8 @@ class RotatingEnsembleAgent:
         self._current_index = 0
 
     def reset(self, seed: int | None) -> None:
+        """Reset RNG, choose new rotation state, and reset all voters."""
+
         self._rng.seed(seed)
         self._period = self._rng.choice(self._primes)
         self._current_index = self._rng.randrange(0, len(self._voters))
@@ -35,6 +43,8 @@ class RotatingEnsembleAgent:
             voter.reset(seed)
 
     def select_action(self, obs: RoundObservation) -> int:
+        """Delegate action selection to the currently active voter."""
+
         if obs.step < 3:
             return 0
         if obs.step % self._period == 0:
@@ -44,14 +54,20 @@ class RotatingEnsembleAgent:
         return action if action in (0, 1, 2) else self._rng.randrange(0, 3)
 
     def observe(self, transition: RoundTransition) -> None:
+        """Forward transition updates to all voter agents."""
+
         for voter in self._voters:
             voter.observe(transition)
 
 
 class PollingAgent:
+    """Weighted vote ensemble over the same voter set each step."""
+
     name = "polling_agent"
 
     def __init__(self) -> None:
+        """Initialize voter pool used by majority vote."""
+
         self._voters = [
             CopyOpponentAgent(),
             ReactionaryAgent(),
@@ -63,10 +79,14 @@ class PollingAgent:
         ]
 
     def reset(self, seed: int | None) -> None:
+        """Reset all voter agents."""
+
         for voter in self._voters:
             voter.reset(seed)
 
     def select_action(self, obs: RoundObservation) -> int:
+        """Select action from weighted vote counts across voters."""
+
         if obs.step < 3:
             return 0
         votes = [int(agent.select_action(obs)) for agent in self._voters]
@@ -76,5 +96,7 @@ class PollingAgent:
         return int(max(range(3), key=lambda idx: vote_counts[idx]))
 
     def observe(self, transition: RoundTransition) -> None:
+        """Forward transition updates to all voter agents."""
+
         for voter in self._voters:
             voter.observe(transition)
