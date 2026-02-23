@@ -1,8 +1,12 @@
 runtime: python313
 entrypoint: gunicorn -b :$PORT run:app
 
+beta_settings:
+  cloud_sql_instances: directed-sonar-429119-u2:us-west3:rps-sql
+
 env_variables:
-  DATABASE_URL: ""
+  DATABASE_URL: "postgresql+pg8000://rps_app:%29%25zQ%23_%7B%3ELp%29x%5DAg_@/rps?unix_sock=/cloudsql/directed-sonar-429119-u2:us-west3:rps-sql/.s.PGSQL.5432"
+
   DB_PATH: /tmp/rps.db
   EVENTS_DIR: gs://directed-sonar-rps-data/events
   MODELS_DIR: gs://directed-sonar-rps-data/models

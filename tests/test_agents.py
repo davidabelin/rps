@@ -2,6 +2,7 @@ from rps_agents.heuristic.basic import CopyOpponentAgent
 from rps_agents.heuristic.constants import HitLastOwnActionAgent
 from rps_agents.heuristic.ensemble import RotatingEnsembleAgent
 from rps_agents.heuristic.memory_patterns import MemoryPatternAgent
+from rps_agents.heuristic.multi_armed_bandit import MultiArmedBanditAgent
 from rps_core.types import RoundObservation, RoundTransition
 
 
@@ -59,6 +60,31 @@ def test_rotating_ensemble_stays_stable_over_long_sequence():
         action = agent.select_action(obs)
         assert action in (0, 1, 2)
         opponent_action = (step + 1) % 3
+        reward_delta = 1 if action == (opponent_action + 1) % 3 else -1 if opponent_action == (action + 1) % 3 else 0
+        cumulative_reward += reward_delta
+        last_opponent_action = opponent_action
+        agent.observe(
+            RoundTransition(
+                observation=obs,
+                action=action,
+                opponent_action=opponent_action,
+                outcome="player" if reward_delta > 0 else "ai" if reward_delta < 0 else "tie",
+                reward_delta=reward_delta,
+                round_index=step,
+            )
+        )
+
+
+def test_multi_armed_bandit_long_sequence_is_valid():
+    agent = MultiArmedBanditAgent(max_transition_history=120)
+    agent.reset(seed=23)
+    cumulative_reward = 0
+    last_opponent_action = None
+    for step in range(720):
+        obs = RoundObservation(step=step, last_opponent_action=last_opponent_action, cumulative_reward=cumulative_reward)
+        action = agent.select_action(obs)
+        assert action in (0, 1, 2)
+        opponent_action = step % 3
         reward_delta = 1 if action == (opponent_action + 1) % 3 else -1 if opponent_action == (action + 1) % 3 else 0
         cumulative_reward += reward_delta
         last_opponent_action = opponent_action

@@ -10,7 +10,16 @@ from rps_core.scoring import score_round
 from rps_core.types import RoundObservation, RoundTransition
 
 
-def _sample_transition(history: list[dict], key: str, deterministic: bool, decay: float, init_value: float) -> int:
+def _sample_transition(
+    history: list[dict],
+    key: str,
+    deterministic: bool,
+    decay: float,
+    init_value: float,
+    max_history: int,
+) -> int:
+    if len(history) > max_history:
+        history = history[-max_history:]
     matrix = np.zeros((3, 3), dtype=float) + init_value
     for i in range(len(history) - 1):
         matrix = (matrix - init_value) / decay + init_value
@@ -33,10 +42,11 @@ class Candidate:
 class MultiArmedBanditAgent(RNGMixin):
     name = "multi_armed_bandit"
 
-    def __init__(self, step_size: float = 2.0, decay_rate: float = 1.05) -> None:
+    def __init__(self, step_size: float = 2.0, decay_rate: float = 1.05, max_transition_history: int = 180) -> None:
         super().__init__()
         self.step_size = step_size
         self.decay_rate = decay_rate
+        self.max_transition_history = max(30, int(max_transition_history))
         self.history: list[dict] = []
         self.bandits: dict[str, Candidate] = {
             "mirror_0": Candidate(),
@@ -79,16 +89,44 @@ class MultiArmedBanditAgent(RNGMixin):
             counts = Counter(item["action"] for item in self.history)
             return (counts.most_common(1)[0][0] + 2) % 3
         if name == "transition_random":
-            pred = _sample_transition(self.history, "opponent", deterministic=False, decay=1.0, init_value=0.1)
+            pred = _sample_transition(
+                self.history,
+                "opponent",
+                deterministic=False,
+                decay=1.0,
+                init_value=0.1,
+                max_history=self.max_transition_history,
+            )
             return (pred + 1) % 3
         if name == "transition_deterministic":
-            pred = _sample_transition(self.history, "opponent", deterministic=True, decay=1.0, init_value=0.1)
+            pred = _sample_transition(
+                self.history,
+                "opponent",
+                deterministic=True,
+                decay=1.0,
+                init_value=0.1,
+                max_history=self.max_transition_history,
+            )
             return (pred + 1) % 3
         if name == "transition_self":
-            pred = _sample_transition(self.history, "action", deterministic=False, decay=1.05, init_value=0.1)
+            pred = _sample_transition(
+                self.history,
+                "action",
+                deterministic=False,
+                decay=1.05,
+                init_value=0.1,
+                max_history=self.max_transition_history,
+            )
             return (pred + 2) % 3
         if name == "transition_self_det":
-            pred = _sample_transition(self.history, "action", deterministic=True, decay=1.05, init_value=0.1)
+            pred = _sample_transition(
+                self.history,
+                "action",
+                deterministic=True,
+                decay=1.05,
+                init_value=0.1,
+                max_history=self.max_transition_history,
+            )
             return (pred + 2) % 3
         return self._rand_action()
 
