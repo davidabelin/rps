@@ -155,6 +155,27 @@ def test_training_readiness_endpoint(client):
     assert "sklearn_available" in readiness
 
 
+def test_worker_token_falls_back_to_internal_token(tmp_path: Path):
+    app = create_app(
+        {
+            "TESTING": True,
+            "DB_PATH": str(tmp_path / "fallback.db"),
+            "EVENTS_DIR": str(tmp_path / "events"),
+            "MODELS_DIR": str(tmp_path / "models"),
+            "EXPORTS_DIR": str(tmp_path / "exports"),
+            "TRAINING_EXECUTION_MODE": "task_queue",
+            "TRAINING_WORKER_TOKEN": "",
+            "INTERNAL_WORKER_TOKEN": "abc123",
+            "TASKS_PROJECT_ID": "p",
+            "TASKS_LOCATION": "us-west3",
+            "TASKS_QUEUE": "q",
+            "TRAINING_WORKER_URL": "https://example.com",
+        }
+    )
+    manager = app.extensions["training_jobs"]
+    assert manager.worker_token == "abc123"
+
+
 def test_rl_job_lifecycle_creates_model(client):
     create_job = client.post(
         "/api/v1/rl/jobs",

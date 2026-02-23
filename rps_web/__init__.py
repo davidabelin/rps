@@ -7,6 +7,7 @@ from flask import Flask
 
 from rps_storage.repository import RPSRepository
 from rps_training.jobs import TrainingJobManager
+from rps_web.runtime import GameRuntimeCache
 
 
 def create_app(config: dict | None = None) -> Flask:
@@ -33,6 +34,7 @@ def create_app(config: dict | None = None) -> Flask:
         TRAINING_WORKER_TOKEN=os.getenv("TRAINING_WORKER_TOKEN", ""),
         TRAINING_WORKER_SERVICE_ACCOUNT=os.getenv("TRAINING_WORKER_SERVICE_ACCOUNT", ""),
         INTERNAL_WORKER_TOKEN=os.getenv("INTERNAL_WORKER_TOKEN", ""),
+        ROUND_EVENT_LOGGING_MODE=os.getenv("ROUND_EVENT_LOGGING_MODE", "auto"),
     )
     if config:
         app.config.update(config)
@@ -48,11 +50,12 @@ def create_app(config: dict | None = None) -> Flask:
         task_location=app.config["TASKS_LOCATION"] or None,
         task_queue=app.config["TASKS_QUEUE"] or None,
         worker_url=app.config["TRAINING_WORKER_URL"] or None,
-        worker_token=app.config["TRAINING_WORKER_TOKEN"] or None,
+        worker_token=(app.config["TRAINING_WORKER_TOKEN"] or app.config["INTERNAL_WORKER_TOKEN"] or None),
         worker_service_account=app.config["TRAINING_WORKER_SERVICE_ACCOUNT"] or None,
     )
     app.extensions["repository"] = repository
     app.extensions["training_jobs"] = training_jobs
+    app.extensions["game_runtime"] = GameRuntimeCache(max_entries=512)
 
     from rps_web.blueprints.game import game_bp
     from rps_web.blueprints.main import main_bp

@@ -5,16 +5,22 @@ from datetime import UTC, datetime
 from flask import Blueprint, current_app, jsonify, request
 
 from rps_agents import ModelBackedAgent, build_heuristic_agent, list_agent_specs
-from rps_core.engine import play_human_round
+from rps_core.engine import play_human_round_stateful, replay_observation
 from rps_core.scoring import ACTION_NAMES
 from rps_core.types import normalize_action
+from rps_storage.object_store import is_gcs_uri
 from rps_training.dataset import append_round_event
+from rps_web.runtime import GameRuntimeState
 
 game_bp = Blueprint("game_api", __name__, url_prefix="/api/v1")
 
 
 def _repo():
     return current_app.extensions["repository"]
+
+
+def _runtime():
+    return current_app.extensions["game_runtime"]
 
 
 def _serialize_game(game: dict) -> dict:
@@ -30,13 +36,51 @@ def _serialize_game(game: dict) -> dict:
     }
 
 
-def _build_agent_for_game(game: dict):
+def _resolve_agent_factory_and_signature(game: dict):
     if game["agent_name"] == "active_model":
         model_record = _repo().get_active_model()
         if model_record is None:
             raise RuntimeError("No active model is available. Activate a trained model first.")
-        return ModelBackedAgent(model_record["artifact_path"])
-    return build_heuristic_agent(game["agent_name"])
+        model_id = int(model_record["id"])
+        artifact_path = str(model_record["artifact_path"])
+        return (lambda: ModelBackedAgent(artifact_path), f"active_model:{model_id}")
+    name = str(game["agent_name"])
+    return (lambda: build_heuristic_agent(name), f"heuristic:{name}")
+
+
+def _should_write_round_event() -> bool:
+    mode = str(current_app.config.get("ROUND_EVENT_LOGGING_MODE", "auto")).strip().lower()
+    if mode in {"off", "disabled", "false", "0", "none", "db_only"}:
+        return False
+    if mode in {"on", "enabled", "true", "1", "always"}:
+        return True
+    events_dir = str(current_app.config.get("EVENTS_DIR", ""))
+    return bool(events_dir) and not is_gcs_uri(events_dir)
+
+
+def _load_runtime_state(game: dict) -> GameRuntimeState:
+    game_id = int(game["id"])
+    session_index = int(game["session_index"])
+    agent_factory, signature = _resolve_agent_factory_and_signature(game)
+    cached = _runtime().get(game_id)
+    if (
+        cached is not None
+        and cached.session_index == session_index
+        and cached.signature == signature
+    ):
+        return cached
+    agent = agent_factory()
+    history = _repo().list_rounds(game_id, session_index=session_index)
+    observation = replay_observation(agent, history)
+    state = GameRuntimeState(
+        game_id=game_id,
+        session_index=session_index,
+        signature=signature,
+        agent=agent,
+        observation=observation,
+    )
+    _runtime().put(state)
+    return state
 
 
 @game_bp.get("/agents")
@@ -72,6 +116,7 @@ def create_game():
     if agent_name == "active_model" and _repo().get_active_model() is None:
         return jsonify({"error": "No active model is available. Train and activate a model first."}), 400
     game = _repo().create_game(agent_name=agent_name)
+    _runtime().forget_game(int(game["id"]))
     return jsonify({"game": _serialize_game(game)}), 201
 
 
@@ -98,12 +143,17 @@ def play_round(game_id: int):
         return jsonify({"error": "Game not found."}), 404
 
     try:
-        agent = _build_agent_for_game(game)
+        runtime_state = _load_runtime_state(game)
     except RuntimeError as exc:
         return jsonify({"error": str(exc)}), 400
 
-    history = _repo().list_rounds(game_id, session_index=int(game["session_index"]))
-    result = play_human_round(agent=agent, player_action=player_action, rounds=history)
+    result, next_observation = play_human_round_stateful(
+        agent=runtime_state.agent,
+        player_action=player_action,
+        observation=runtime_state.observation,
+    )
+    runtime_state.observation = next_observation
+    _runtime().put(runtime_state)
 
     score_player = int(game["score_player"]) + (1 if result.reward_delta > 0 else 0)
     score_ai = int(game["score_ai"]) + (1 if result.reward_delta < 0 else 0)
@@ -127,22 +177,23 @@ def play_round(game_id: int):
         score_ties=score_ties,
     )
 
-    append_round_event(
-        {
-            "timestamp": datetime.now(UTC).isoformat(),
-            "game_id": int(game_id),
-            "session_index": int(game["session_index"]),
-            "round_index": int(result.round_index),
-            "agent_name": game["agent_name"],
-            "player_action": int(result.player_action),
-            "ai_action": int(result.opponent_action),
-            "player_action_name": ACTION_NAMES[int(result.player_action)],
-            "ai_action_name": ACTION_NAMES[int(result.opponent_action)],
-            "outcome": result.outcome,
-            "reward_delta": int(result.reward_delta),
-        },
-        events_dir=current_app.config["EVENTS_DIR"],
-    )
+    if _should_write_round_event():
+        append_round_event(
+            {
+                "timestamp": datetime.now(UTC).isoformat(),
+                "game_id": int(game_id),
+                "session_index": int(game["session_index"]),
+                "round_index": int(result.round_index),
+                "agent_name": game["agent_name"],
+                "player_action": int(result.player_action),
+                "ai_action": int(result.opponent_action),
+                "player_action_name": ACTION_NAMES[int(result.player_action)],
+                "ai_action_name": ACTION_NAMES[int(result.opponent_action)],
+                "outcome": result.outcome,
+                "reward_delta": int(result.reward_delta),
+            },
+            events_dir=current_app.config["EVENTS_DIR"],
+        )
 
     return jsonify(
         {
@@ -166,4 +217,5 @@ def reset_game(game_id: int):
     updated_game = _repo().reset_game(game_id)
     if updated_game is None:
         return jsonify({"error": "Game not found."}), 404
+    _runtime().forget_game(game_id)
     return jsonify({"game": _serialize_game(updated_game)})

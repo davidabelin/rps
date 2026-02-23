@@ -41,6 +41,15 @@ def replay_observation(agent: AgentProtocol, rounds: list[dict]) -> RoundObserva
 
 def play_human_round(agent: AgentProtocol, player_action: int, rounds: list[dict]) -> RoundResult:
     observation = replay_observation(agent, rounds)
+    result, _ = play_human_round_stateful(agent, player_action=player_action, observation=observation)
+    return result
+
+
+def play_human_round_stateful(
+    agent: AgentProtocol,
+    player_action: int,
+    observation: RoundObservation,
+) -> tuple[RoundResult, RoundObservation]:
     player = int(normalize_action(player_action))
     ai_action = int(normalize_action(agent.select_action(observation)))
     player_reward = score_round(player, ai_action)
@@ -54,10 +63,16 @@ def play_human_round(agent: AgentProtocol, player_action: int, rounds: list[dict
         round_index=observation.step,
     )
     agent.observe(transition)
-    return RoundResult(
+    result = RoundResult(
         player_action=player,
         opponent_action=ai_action,
         outcome=outcome,
         reward_delta=player_reward,
         round_index=observation.step,
     )
+    next_observation = RoundObservation(
+        step=observation.step + 1,
+        last_opponent_action=player,
+        cumulative_reward=observation.cumulative_reward - player_reward,
+    )
+    return result, next_observation
