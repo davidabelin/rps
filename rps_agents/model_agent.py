@@ -30,6 +30,9 @@ class ModelBackedAgent:
         self._policy = self._artifact.get("policy")
         self._q_table = self._artifact.get("q_table")
         self._model_type = str(self._artifact.get("model_type", "decision_tree"))
+        config = self._artifact.get("config", {}) if isinstance(self._artifact, dict) else {}
+        lookback = int(config.get("lookback", 5)) if isinstance(config, dict) else 5
+        self._history_cap = max(lookback + 4, 16)
 
     def reset(self, seed: int | None) -> None:
         """Reset per-session history and RNG seed."""
@@ -82,3 +85,5 @@ class ModelBackedAgent:
                 "reward_delta": -int(transition.reward_delta),
             }
         )
+        if len(self._history) > self._history_cap:
+            self._history = self._history[-self._history_cap :]

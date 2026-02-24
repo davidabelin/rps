@@ -415,6 +415,157 @@ class RPSRepository:
             "rounds",
         )
 
+    def record_round_and_update_game(
+        self,
+        *,
+        game_id: int,
+        session_index: int,
+        round_index: int,
+        player_action: int,
+        ai_action: int,
+        outcome: str,
+        reward_delta: int,
+    ) -> tuple[dict, dict]:
+        """Persist one round and increment game scores in one transaction.
+
+        Parameters
+        ----------
+        game_id : int
+            Target game id.
+        session_index : int
+            Expected active session index for optimistic safety.
+        round_index : int
+            Zero-based round index within the active session.
+        player_action : int
+            Human action id.
+        ai_action : int
+            Agent action id.
+        outcome : str
+            Outcome label from player perspective.
+        reward_delta : int
+            Reward sign from player perspective.
+
+        Returns
+        -------
+        tuple[dict, dict]
+            ``(stored_round, updated_game)`` payload.
+
+        Raises
+        ------
+        KeyError
+            If game does not exist or session index no longer matches.
+        """
+
+        now = utcnow_iso()
+        score_player_inc = 1 if int(reward_delta) > 0 else 0
+        score_ai_inc = 1 if int(reward_delta) < 0 else 0
+        score_ties_inc = 1 if int(reward_delta) == 0 else 0
+
+        round_params = {
+            "game_id": int(game_id),
+            "session_index": int(session_index),
+            "round_index": int(round_index),
+            "player_action": int(player_action),
+            "ai_action": int(ai_action),
+            "outcome": str(outcome),
+            "reward_delta": int(reward_delta),
+            "created_at": now,
+        }
+        game_params = {
+            "id": int(game_id),
+            "session_index": int(session_index),
+            "score_player_inc": int(score_player_inc),
+            "score_ai_inc": int(score_ai_inc),
+            "score_ties_inc": int(score_ties_inc),
+            "updated_at": now,
+        }
+
+        with self._lock:
+            with self.engine.begin() as conn:
+                stored_round = None
+                try:
+                    stored_round = self._first_or_none(
+                        conn.execute(
+                            text(
+                                """
+                                INSERT INTO rounds
+                                (game_id, session_index, round_index, player_action, ai_action, outcome, reward_delta, created_at)
+                                VALUES (:game_id, :session_index, :round_index, :player_action, :ai_action, :outcome, :reward_delta, :created_at)
+                                RETURNING *
+                                """
+                            ),
+                            round_params,
+                        ).mappings()
+                    )
+                except DatabaseError:
+                    stored_round = None
+                if stored_round is None:
+                    insert_result = conn.execute(
+                        text(
+                            """
+                            INSERT INTO rounds
+                            (game_id, session_index, round_index, player_action, ai_action, outcome, reward_delta, created_at)
+                            VALUES (:game_id, :session_index, :round_index, :player_action, :ai_action, :outcome, :reward_delta, :created_at)
+                            """
+                        ),
+                        round_params,
+                    )
+                    last_id = getattr(insert_result, "lastrowid", None)
+                    if last_id is None:
+                        stored_round = self._first_or_none(
+                            conn.execute(text("SELECT * FROM rounds ORDER BY id DESC LIMIT 1")).mappings()
+                        )
+                    else:
+                        stored_round = self._first_or_none(
+                            conn.execute(text("SELECT * FROM rounds WHERE id = :id"), {"id": int(last_id)}).mappings()
+                        )
+
+                updated_game = None
+                try:
+                    updated_game = self._first_or_none(
+                        conn.execute(
+                            text(
+                                """
+                                UPDATE games
+                                SET rounds_played = rounds_played + 1,
+                                    score_player = score_player + :score_player_inc,
+                                    score_ai = score_ai + :score_ai_inc,
+                                    score_ties = score_ties + :score_ties_inc,
+                                    updated_at = :updated_at
+                                WHERE id = :id AND session_index = :session_index
+                                RETURNING *
+                                """
+                            ),
+                            game_params,
+                        ).mappings()
+                    )
+                except DatabaseError:
+                    updated_game = None
+                if updated_game is None:
+                    update_result = conn.execute(
+                        text(
+                            """
+                            UPDATE games
+                            SET rounds_played = rounds_played + 1,
+                                score_player = score_player + :score_player_inc,
+                                score_ai = score_ai + :score_ai_inc,
+                                score_ties = score_ties + :score_ties_inc,
+                                updated_at = :updated_at
+                            WHERE id = :id AND session_index = :session_index
+                            """
+                        ),
+                        game_params,
+                    )
+                    if getattr(update_result, "rowcount", 0) == 0:
+                        raise KeyError(f"Game {game_id} not found or session mismatch.")
+                    updated_game = self._first_or_none(
+                        conn.execute(text("SELECT * FROM games WHERE id = :id"), {"id": int(game_id)}).mappings()
+                    )
+
+                if updated_game is None:
+                    raise KeyError(f"Game {game_id} not found or session mismatch.")
+                return stored_round or {}, updated_game
+
     def list_rounds(self, game_id: int, session_index: int | None = None) -> list[dict]:
         """List rounds for a game, optionally constrained to one session."""
 

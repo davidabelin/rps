@@ -106,14 +106,16 @@ def _load_runtime_state(game: dict) -> GameRuntimeState:
 
     game_id = int(game["id"])
     session_index = int(game["session_index"])
-    agent_factory, signature = _resolve_agent_factory_and_signature(game)
     cached = _runtime().get(game_id)
-    if (
-        cached is not None
-        and cached.session_index == session_index
-        and cached.signature == signature
-    ):
-        return cached
+    if cached is not None and cached.session_index == session_index:
+        # Keep a stable per-session policy instance for active_model games.
+        # This avoids a model-registry lookup on every round request.
+        if str(game["agent_name"]) == "active_model":
+            if cached.signature.startswith("active_model:"):
+                return cached
+        else:
+            return cached
+    agent_factory, signature = _resolve_agent_factory_and_signature(game)
     agent = agent_factory()
     history = _repo().list_rounds(game_id, session_index=session_index)
     observation = replay_observation(agent, history)
@@ -220,33 +222,19 @@ def play_round(game_id: int):
     runtime_state.observation = next_observation
     _runtime().put(runtime_state)
 
-    score_player = int(game["score_player"]) + (1 if result.reward_delta > 0 else 0)
-    score_ai = int(game["score_ai"]) + (1 if result.reward_delta < 0 else 0)
-    score_ties = int(game["score_ties"]) + (1 if result.reward_delta == 0 else 0)
-    rounds_played = int(game["rounds_played"]) + 1
-
-    stored_round = _repo().add_round(
-        game_id=game_id,
-        session_index=int(game["session_index"]),
-        round_index=result.round_index,
-        player_action=result.player_action,
-        ai_action=result.opponent_action,
-        outcome=result.outcome,
-        reward_delta=result.reward_delta,
-    )
-    updated_at = _repo().persist_game_scores(
-        game_id=game_id,
-        rounds_played=rounds_played,
-        score_player=score_player,
-        score_ai=score_ai,
-        score_ties=score_ties,
-    )
-    updated_game = dict(game)
-    updated_game["rounds_played"] = rounds_played
-    updated_game["score_player"] = score_player
-    updated_game["score_ai"] = score_ai
-    updated_game["score_ties"] = score_ties
-    updated_game["updated_at"] = updated_at
+    try:
+        stored_round, updated_game = _repo().record_round_and_update_game(
+            game_id=game_id,
+            session_index=int(game["session_index"]),
+            round_index=result.round_index,
+            player_action=result.player_action,
+            ai_action=result.opponent_action,
+            outcome=result.outcome,
+            reward_delta=result.reward_delta,
+        )
+    except KeyError:
+        _runtime().forget_game(game_id)
+        return jsonify({"error": "Game session changed. Start a new game and try again."}), 409
 
     if _should_write_round_event():
         append_round_event(

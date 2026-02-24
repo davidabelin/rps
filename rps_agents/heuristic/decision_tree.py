@@ -61,21 +61,34 @@ class DecisionTreeHeuristicAgent(RNGMixin):
 
     name = "decision_tree"
 
-    def __init__(self, window: int = 5, min_samples: int = 25, random_state: int = 42) -> None:
-        """Configure rolling window and minimum sample threshold."""
+    def __init__(
+        self,
+        window: int = 5,
+        min_samples: int = 25,
+        random_state: int = 42,
+        retrain_interval: int = 6,
+        max_history: int = 180,
+    ) -> None:
+        """Configure rolling window, retrain cadence, and history cap."""
 
         super().__init__()
         self.window = window
         self.min_samples = min_samples
         self.random_state = random_state
+        self.retrain_interval = max(1, int(retrain_interval))
+        self.max_history = max(int(max_history), int(min_samples + window + 2))
         self.rollouts_hist: dict[str, list[int]] = {"steps": [], "actions": [], "opp-actions": []}
         self.classifier = DecisionTreeClassifier(random_state=random_state) if DecisionTreeClassifier else None
+        self._last_fit_step = -1
+        self._is_fitted = False
 
     def reset(self, seed: int | None) -> None:
         """Reset RNG and clear per-session rollout history."""
 
         super().reset(seed)
         self.rollouts_hist = {"steps": [], "actions": [], "opp-actions": []}
+        self._last_fit_step = -1
+        self._is_fitted = False
 
     def _update_rollouts(self, transition: RoundTransition) -> None:
         """Append one transition into rollout buffers."""
@@ -84,8 +97,70 @@ class DecisionTreeHeuristicAgent(RNGMixin):
         self.rollouts_hist["actions"].append(transition.action)
         self.rollouts_hist["opp-actions"].append(transition.opponent_action)
 
+    def _recent_rollouts(self) -> dict[str, list[int]]:
+        """Return recent rollout slices bounded by ``max_history``."""
+
+        total = len(self.rollouts_hist["steps"])
+        start = max(0, total - self.max_history)
+        return {key: values[start:] for key, values in self.rollouts_hist.items()}
+
+    def _fit_if_due(self, obs: RoundObservation) -> None:
+        """Refit classifier only when cadence/threshold conditions are met."""
+
+        if self.classifier is None:
+            return
+        total_steps = len(self.rollouts_hist["steps"])
+        if obs.step <= self.min_samples + self.window:
+            return
+        if total_steps < max(self.min_samples, self.window + 1):
+            return
+        should_refit = (not self._is_fitted) or ((obs.step - self._last_fit_step) >= self.retrain_interval)
+        if not should_refit:
+            return
+
+        capped = self._recent_rollouts()
+        capped_steps = len(capped["steps"])
+        if capped_steps < self.window + 2:
+            return
+
+        feature_rows: list[np.ndarray] = []
+        for i in range(capped_steps - self.window + 1):
+            short_stats = {key: capped[key][i : i + self.window] for key in capped}
+            long_stats = {key: capped[key][: i + self.window] for key in capped}
+            feature_rows.append(_construct_features(short_stats, long_stats))
+        if len(feature_rows) < 2:
+            return
+
+        train_x = np.asarray(feature_rows[:-1], dtype=float)
+        train_y = np.asarray(capped["opp-actions"][self.window :], dtype=int)
+        if len(train_x) == 0 or len(train_y) == 0 or len(train_x) != len(train_y):
+            return
+        try:
+            self.classifier.fit(train_x, train_y)
+            self._last_fit_step = int(obs.step)
+            self._is_fitted = True
+        except ValueError:
+            return
+
+    def _predict_next_opponent_action(self) -> int | None:
+        """Predict next opponent action with currently fitted classifier."""
+
+        if self.classifier is None or not self._is_fitted:
+            return None
+        capped = self._recent_rollouts()
+        capped_steps = len(capped["steps"])
+        if capped_steps < self.window:
+            return None
+        short_stats = {key: capped[key][-self.window :] for key in capped}
+        long_stats = capped
+        sample = _construct_features(short_stats, long_stats).reshape(1, -1)
+        try:
+            return int(self.classifier.predict(sample)[0])
+        except ValueError:
+            return None
+
     def select_action(self, obs: RoundObservation) -> int:
-        """Fit online decision tree and play counter to predicted opponent move."""
+        """Predict opponent move and play counter action."""
 
         if self.classifier is None:
             return self._rand_action()
@@ -95,26 +170,9 @@ class DecisionTreeHeuristicAgent(RNGMixin):
         if total_steps < max(self.min_samples, self.window + 1):
             return self._rand_action()
 
-        feature_rows: list[np.ndarray] = []
-        for i in range(total_steps - self.window + 1):
-            short_stats = {key: self.rollouts_hist[key][i : i + self.window] for key in self.rollouts_hist}
-            long_stats = {key: self.rollouts_hist[key][: i + self.window] for key in self.rollouts_hist}
-            feature_rows.append(_construct_features(short_stats, long_stats))
-        if len(feature_rows) < 2:
-            return self._rand_action()
-
-        train_x = np.asarray(feature_rows[:-1], dtype=float)
-        test_sample = np.asarray(feature_rows[-1], dtype=float).reshape(1, -1)
-        train_y = np.asarray(self.rollouts_hist["opp-actions"][self.window :], dtype=int)
-        if len(train_x) == 0 or len(train_y) == 0:
-            return self._rand_action()
-        if len(train_x) != len(train_y):
-            # Guard against transient history inconsistencies to avoid runtime crashes.
-            return self._rand_action()
-        try:
-            self.classifier.fit(train_x, train_y)
-            next_opp_action_pred = int(self.classifier.predict(test_sample)[0])
-        except ValueError:
+        self._fit_if_due(obs)
+        next_opp_action_pred = self._predict_next_opponent_action()
+        if next_opp_action_pred is None:
             return self._rand_action()
         return int((next_opp_action_pred + 1) % 3)
 
