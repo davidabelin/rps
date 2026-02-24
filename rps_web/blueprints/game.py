@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from time import perf_counter
 
 from flask import Blueprint, current_app, jsonify, request
 
@@ -193,6 +194,7 @@ def play_round(game_id: int):
         JSON response with updated game score and round result payload.
     """
 
+    started = perf_counter()
     payload = request.get_json(silent=True) or {}
     if "action" not in payload:
         return jsonify({"error": "Request body must include 'action'."}), 400
@@ -232,13 +234,19 @@ def play_round(game_id: int):
         outcome=result.outcome,
         reward_delta=result.reward_delta,
     )
-    updated_game = _repo().update_game_scores(
+    updated_at = _repo().persist_game_scores(
         game_id=game_id,
         rounds_played=rounds_played,
         score_player=score_player,
         score_ai=score_ai,
         score_ties=score_ties,
     )
+    updated_game = dict(game)
+    updated_game["rounds_played"] = rounds_played
+    updated_game["score_player"] = score_player
+    updated_game["score_ai"] = score_ai
+    updated_game["score_ties"] = score_ties
+    updated_game["updated_at"] = updated_at
 
     if _should_write_round_event():
         append_round_event(
@@ -270,6 +278,7 @@ def play_round(game_id: int):
                 "ai_action_name": ACTION_NAMES[int(result.opponent_action)],
                 "outcome": result.outcome,
                 "reward_delta": int(result.reward_delta),
+                "server_elapsed_ms": int(round((perf_counter() - started) * 1000)),
             },
         }
     )

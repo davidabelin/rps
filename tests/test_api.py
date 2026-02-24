@@ -38,6 +38,8 @@ def test_create_round_and_reset_preserves_round_history(app, client):
     game_id = _create_game(client, "copy_opponent")
     first = client.post(f"/api/v1/games/{game_id}/round", json={"action": "rock"})
     assert first.status_code == 200
+    first_round = first.get_json()["round"]
+    assert int(first_round["server_elapsed_ms"]) >= 0
     second = client.post(f"/api/v1/games/{game_id}/round", json={"action": "paper"})
     assert second.status_code == 200
 

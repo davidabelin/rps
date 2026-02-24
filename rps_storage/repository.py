@@ -320,6 +320,45 @@ class RPSRepository:
                 row = self._first_or_none(conn.execute(text("SELECT * FROM games WHERE id = :id"), {"id": game_id}).mappings())
         return row or {}
 
+    def persist_game_scores(
+        self,
+        game_id: int,
+        rounds_played: int,
+        score_player: int,
+        score_ai: int,
+        score_ties: int,
+    ) -> str:
+        """Persist rolling game score counters without fetching row back.
+
+        Returns
+        -------
+        str
+            Timestamp string written to ``updated_at``.
+        """
+
+        now = utcnow_iso()
+        with self._lock:
+            with self.engine.begin() as conn:
+                conn.execute(
+                    text(
+                        """
+                        UPDATE games
+                        SET rounds_played = :rounds_played, score_player = :score_player,
+                            score_ai = :score_ai, score_ties = :score_ties, updated_at = :updated_at
+                        WHERE id = :id
+                        """
+                    ),
+                    {
+                        "rounds_played": rounds_played,
+                        "score_player": score_player,
+                        "score_ai": score_ai,
+                        "score_ties": score_ties,
+                        "updated_at": now,
+                        "id": game_id,
+                    },
+                )
+        return now
+
     def reset_game(self, game_id: int) -> dict | None:
         """Start a new session for an existing game id."""
 

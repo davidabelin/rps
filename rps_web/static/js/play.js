@@ -113,10 +113,21 @@
     agentDetails.textContent = `${descriptor.description}`;
   }
 
+  async function fetchJsonWithTimeout(url, options, timeoutMs) {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(url, { ...(options || {}), signal: controller.signal });
+      const body = await response.json();
+      return { response, body };
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+  }
+
   async function fetchActiveModelSummary() {
     try {
-      const response = await fetch("/api/v1/models");
-      const body = await response.json();
+      const { response, body } = await fetchJsonWithTimeout("/api/v1/models", {}, 5000);
       if (!response.ok || !Array.isArray(body.models)) {
         activeModelSummary = "none";
         return;
@@ -133,8 +144,7 @@
   }
 
   async function fetchAgents() {
-    const response = await fetch("/api/v1/agents");
-    const body = await response.json();
+    const { response, body } = await fetchJsonWithTimeout("/api/v1/agents", {}, 5000);
     if (!response.ok) {
       throw new Error(body.error || "Failed to fetch agents");
     }
@@ -157,12 +167,15 @@
     }
     setRoundInteractionEnabled(false);
     try {
-      const response = await fetch("/api/v1/games", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agent: agentSelect.value }),
-      });
-      const body = await response.json();
+      const { response, body } = await fetchJsonWithTimeout(
+        "/api/v1/games",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ agent: agentSelect.value }),
+        },
+        7000
+      );
       if (!response.ok) {
         setStatus(`Failed to create game: ${body.error || "unknown error"}`);
         return;
@@ -205,16 +218,25 @@
     aiActionEl.classList.add("pending");
     const startedAt = window.performance.now();
     try {
-      const response = await fetch(`/api/v1/games/${currentGame.game_id}/round`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
-      });
+      const { response, body } = await fetchJsonWithTimeout(
+        `/api/v1/games/${currentGame.game_id}/round`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action }),
+        },
+        10000
+      );
       const elapsedMs = Math.round(window.performance.now() - startedAt);
-      latencyStatus.textContent = `Last round latency: ${elapsedMs} ms`;
-      const body = await response.json();
+      const serverMs = Number(body?.round?.server_elapsed_ms);
+      latencyStatus.textContent = Number.isFinite(serverMs)
+        ? `Last round latency: client ${elapsedMs} ms, server ${serverMs} ms`
+        : `Last round latency: client ${elapsedMs} ms, server -`;
       if (!response.ok) {
         setStatus(`Round error: ${body.error || "unknown error"}`);
+        setOutcome("Round failed. Try again.", null);
+        playerActionEl.classList.remove("pending");
+        aiActionEl.classList.remove("pending");
         return;
       }
       currentGame = body.game;
@@ -231,7 +253,8 @@
       updateMomentum(body.round.outcome);
       addLogRow(body.round);
     } catch (err) {
-      setStatus(`Round error: ${String(err)}`);
+      const isTimeout = err && String(err.name || "").toLowerCase() === "aborterror";
+      setStatus(`Round error: ${isTimeout ? "request timed out" : String(err)}`);
       setOutcome("Round failed. Try again.", null);
       playerActionEl.classList.remove("pending");
       aiActionEl.classList.remove("pending");
