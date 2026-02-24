@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from time import perf_counter
 from typing import Callable
 
 from rps_agents.base import AgentProtocol
@@ -50,7 +51,15 @@ class BenchStats:
         }
 
 
-def _play_against_bot(agent_factory: Callable[[], AgentProtocol], bot_name: str, rounds: int, seed: int | None) -> dict:
+def _play_against_bot(
+    agent_factory: Callable[[], AgentProtocol],
+    bot_name: str,
+    rounds: int,
+    seed: int | None,
+    *,
+    started: float | None = None,
+    max_elapsed_seconds: float | None = None,
+) -> dict:
     """Run one agent-vs-canonical-bot matchup.
 
     Parameters
@@ -80,6 +89,16 @@ def _play_against_bot(agent_factory: Callable[[], AgentProtocol], bot_name: str,
     prev_agent_symbol = ""
 
     for step in range(rounds):
+        if (
+            max_elapsed_seconds is not None
+            and started is not None
+            and step % 50 == 0
+            and (perf_counter() - started) >= max_elapsed_seconds
+        ):
+            raise TimeoutError(
+                f"Benchmark exceeded time budget after {bot_name} step {step}. "
+                f"Try fewer rounds, core suite, or CLI benchmark script."
+            )
         observation = RoundObservation(
             step=step,
             last_opponent_action=last_bot_action,
@@ -129,6 +148,7 @@ def benchmark_agent(
     seed: int = 7,
     suite: str = "core",
     bots: list[str] | None = None,
+    max_elapsed_seconds: float | None = None,
 ) -> dict:
     """Evaluate one agent against standard canonical bot set.
 
@@ -144,6 +164,8 @@ def benchmark_agent(
         Benchmark suite name. Ignored when ``bots`` is provided.
     bots : list[str] | None, default=None
         Optional explicit list of benchmark bot names.
+    max_elapsed_seconds : float | None, default=None
+        Optional wall-clock time budget in seconds for the full benchmark run.
 
     Returns
     -------
@@ -151,10 +173,25 @@ def benchmark_agent(
         Aggregate and per-bot benchmark metrics.
     """
 
+    started = perf_counter()
     resolved_suite, resolved_bots = _resolve_bots(suite=suite, bots=bots)
     results = []
     for offset, bot in enumerate(resolved_bots):
-        results.append(_play_against_bot(agent_factory, bot_name=bot, rounds=rounds, seed=seed + offset))
+        if max_elapsed_seconds is not None and (perf_counter() - started) >= max_elapsed_seconds:
+            raise TimeoutError(
+                "Benchmark exceeded time budget before completion. "
+                "Try fewer rounds, core suite, or CLI benchmark script."
+            )
+        results.append(
+            _play_against_bot(
+                agent_factory,
+                bot_name=bot,
+                rounds=rounds,
+                seed=seed + offset,
+                started=started,
+                max_elapsed_seconds=max_elapsed_seconds,
+            )
+        )
     overall_non_tie = sum(item["wins"] for item in results) / max(
         1, sum(item["wins"] + item["losses"] for item in results)
     )

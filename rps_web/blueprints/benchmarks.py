@@ -41,10 +41,13 @@ def run_benchmark():
     seed = int(payload.get("seed", 7))
     suite = str(payload.get("suite", "core")).strip().lower()
     bots = payload.get("bots")
+    max_elapsed_seconds = float(payload.get("max_elapsed_seconds", 20.0))
     if bots is not None and not isinstance(bots, list):
         return jsonify({"error": "bots must be a JSON array of bot names when provided."}), 400
     if rounds < 50:
         return jsonify({"error": "rounds must be at least 50 for meaningful benchmark results."}), 400
+    if max_elapsed_seconds < 5.0:
+        return jsonify({"error": "max_elapsed_seconds must be at least 5.0"}), 400
     try:
         agent_factory = _resolve_agent_factory(agent_name)
     except ValueError as exc:
@@ -56,7 +59,10 @@ def run_benchmark():
             seed=seed,
             suite=suite,
             bots=bots,
+            max_elapsed_seconds=max_elapsed_seconds,
         )
+    except TimeoutError as exc:
+        return jsonify({"error": str(exc)}), 408
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     except Exception as exc:  # pragma: no cover

@@ -179,6 +179,18 @@ def test_benchmark_endpoint_rejects_unknown_suite(client):
     assert "Unknown benchmark suite" in payload["error"]
 
 
+def test_benchmark_endpoint_returns_timeout_for_heavy_workload(client, monkeypatch):
+    def _slow(*args, **kwargs):
+        raise TimeoutError("Benchmark exceeded time budget.")
+
+    monkeypatch.setattr("rps_web.blueprints.benchmarks.benchmark_agent", _slow)
+    response = client.post("/api/v1/benchmarks/run", json={"agent": "markov", "rounds": 120, "suite": "core"})
+    assert response.status_code == 408
+    payload = response.get_json()
+    assert payload is not None
+    assert "time budget" in payload["error"].lower()
+
+
 def test_benchmark_endpoint_returns_json_error_on_internal_failure(client, monkeypatch):
     def _boom(*args, **kwargs):
         raise RuntimeError("boom")

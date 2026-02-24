@@ -152,6 +152,7 @@
       rounds: Number(benchmarkRoundsInput.value || 1000),
       seed: 7,
       suite,
+      max_elapsed_seconds: 20,
     };
     benchmarkOutput.textContent = "Running benchmark...";
     const response = await fetch("/api/v1/benchmarks/run", {

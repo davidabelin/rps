@@ -9,6 +9,6 @@ data/rps.db
 data/*.db
 data/models/*.pkl
 data/exports/*.json
+data/latency_exports/latency/20260224/*.json
 static/*.json
 resources/*.pdf
-scratchpad.txt
