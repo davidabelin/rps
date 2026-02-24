@@ -60,11 +60,18 @@ def training_readiness(rounds: list[dict], lookback: int, minimum_samples: int =
 
     X, _, _ = build_dataset(rounds, lookback=lookback)
     sample_count = int(len(X))
+    session_keys = {
+        (int(row["game_id"]), int(row["session_index"]))
+        for row in rounds
+        if "game_id" in row and "session_index" in row
+    }
     return {
         "total_round_rows": int(len(rounds)),
+        "session_count": int(len(session_keys)),
         "lookback": int(lookback),
         "sample_count": sample_count,
         "minimum_required_samples": int(minimum_samples),
+        "sample_formula": "Each game session with n rounds contributes max(0, n - lookback) samples.",
         "can_train": sample_count >= minimum_samples,
         "sklearn_available": bool(SKLEARN_AVAILABLE),
         "sklearn_import_error": SKLEARN_IMPORT_ERROR,

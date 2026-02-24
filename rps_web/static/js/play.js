@@ -6,6 +6,8 @@
   const newGameBtn = document.getElementById("newGameBtn");
   const gameStatus = document.getElementById("gameStatus");
   const latencyStatus = document.getElementById("latencyStatus");
+  const latencyTelemetryToggle = document.getElementById("latencyTelemetryToggle");
+  const latencyDebugToggle = document.getElementById("latencyDebugToggle");
   const momentumStatus = document.getElementById("momentumStatus");
   const playerActionEl = document.getElementById("playerAction");
   const aiActionEl = document.getElementById("aiAction");
@@ -23,6 +25,25 @@
   let currentStreakCount = 0;
   let agentsByName = {};
   let activeModelSummary = "none";
+  let latencyTelemetryEnabled = false;
+  let latencyDebugEnabled = false;
+
+  function loadLatencyPreferences() {
+    const telemetryRaw = window.localStorage.getItem("rps.latency.telemetry");
+    const debugRaw = window.localStorage.getItem("rps.latency.debug");
+    latencyTelemetryEnabled = telemetryRaw === "1";
+    latencyDebugEnabled = debugRaw === "1";
+    if (latencyTelemetryToggle) {
+      latencyTelemetryToggle.checked = latencyTelemetryEnabled;
+    }
+    if (latencyDebugToggle) {
+      latencyDebugToggle.checked = latencyDebugEnabled;
+    }
+  }
+
+  function saveLatencyPreference(key, enabled) {
+    window.localStorage.setItem(key, enabled ? "1" : "0");
+  }
 
   function setStatus(message) {
     gameStatus.textContent = message;
@@ -100,6 +121,9 @@
   }
 
   function sendLatencyTelemetry(sample) {
+    if (!latencyTelemetryEnabled) {
+      return;
+    }
     const payload = JSON.stringify(sample);
     if (navigator.sendBeacon) {
       const blob = new Blob([payload], { type: "application/json" });
@@ -169,7 +193,7 @@
       agentsByName[agent.name] = agent;
       const option = document.createElement("option");
       option.value = agent.name;
-      option.textContent = `${agent.name} - ${agent.type}`;
+      option.textContent = `${agent.name}`;
       agentSelect.appendChild(option);
     });
     await fetchActiveModelSummary();
@@ -249,11 +273,13 @@
       const agentMs = Number(timings.agent_step);
       const persistMs = Number(timings.persist);
       const timingsKnown = Number.isFinite(loadMs) && Number.isFinite(agentMs) && Number.isFinite(persistMs);
-      latencyStatus.textContent = Number.isFinite(serverMs)
-        ? `Last round latency: client ${elapsedMs} ms, server ${serverMs} ms${
-            timingsKnown ? ` (load ${loadMs}, agent ${agentMs}, persist ${persistMs})` : ""
-          }`
-        : `Last round latency: client ${elapsedMs} ms, server -`;
+      if (latencyDebugEnabled && Number.isFinite(serverMs)) {
+        latencyStatus.textContent = `Last round latency: client ${elapsedMs} ms, server ${serverMs} ms${
+          timingsKnown ? ` (load ${loadMs}, agent ${agentMs}, persist ${persistMs})` : ""
+        }`;
+      } else {
+        latencyStatus.textContent = `Last round latency: ${elapsedMs} ms`;
+      }
       if (!response.ok) {
         setStatus(`Round error: ${body.error || "unknown error"}`);
         setOutcome("Round failed. Try again.", null);
@@ -298,10 +324,23 @@
 
   newGameBtn.addEventListener("click", createGame);
   agentSelect.addEventListener("change", updateAgentDetails);
+  if (latencyTelemetryToggle) {
+    latencyTelemetryToggle.addEventListener("change", () => {
+      latencyTelemetryEnabled = Boolean(latencyTelemetryToggle.checked);
+      saveLatencyPreference("rps.latency.telemetry", latencyTelemetryEnabled);
+    });
+  }
+  if (latencyDebugToggle) {
+    latencyDebugToggle.addEventListener("change", () => {
+      latencyDebugEnabled = Boolean(latencyDebugToggle.checked);
+      saveLatencyPreference("rps.latency.debug", latencyDebugEnabled);
+    });
+  }
   actionButtons.forEach((button) => {
     button.addEventListener("click", () => playRound(button.dataset.action));
   });
 
+  loadLatencyPreferences();
   fetchAgents().catch((err) => {
     setStatus(`Unable to load agents: ${String(err)}`);
   });

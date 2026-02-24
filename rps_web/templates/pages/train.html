@@ -7,40 +7,45 @@
     <p>Train a model from recorded gameplay and activate it for live play.</p>
     <form id="trainForm" class="train-form">
       <label>
-        Model
+        <span class="label-line">Model <span class="help-dot" title="Select the model family to train. Decision Tree is fast and interpretable. MLP is flexible but slower. Frequency is a lightweight baseline.">i</span></span>
         <select name="model_type">
           <option value="decision_tree">Decision Tree</option>
           <option value="mlp">MLP</option>
           <option value="frequency">Frequency Baseline</option>
         </select>
       </label>
+      <p id="modelDescription" class="form-note">Decision Tree: quick baseline for tabular patterns.</p>
       <label>
-        Lookback
+        <span class="label-line">Lookback <span class="help-dot" title="How many prior rounds are encoded as features for one training sample. Larger lookback can capture longer patterns but needs more data.">i</span></span>
         <input name="lookback" type="number" min="2" max="20" value="5">
       </label>
       <label>
-        Learning Rate
+        <span class="label-line">Learning Rate <span class="help-dot" title="Step size used by MLP optimization. Ignored by Decision Tree and Frequency baseline.">i</span></span>
         <input name="learning_rate" type="number" step="0.0001" value="0.001">
       </label>
-      <label>
-        Hidden Layer 1 (MLP)
+      <label class="mlp-only">
+        <span class="label-line">Hidden Layer 1 (MLP) <span class="help-dot" title="Number of neurons in the first hidden layer.">i</span></span>
         <input name="hidden_layer_1" type="number" min="1" step="1" value="64">
       </label>
-      <label>
-        Hidden Layer 2 (MLP)
+      <label class="mlp-only">
+        <span class="label-line">Hidden Layer 2 (MLP) <span class="help-dot" title="Optional second hidden layer. Use 0 to disable.">i</span></span>
         <input name="hidden_layer_2" type="number" min="0" step="1" value="32">
       </label>
-      <label>
-        Batch Size (MLP)
+      <label class="mlp-only">
+        <span class="label-line">Batch Size (MLP) <span class="help-dot" title="Mini-batch size for MLP updates. Smaller values can generalize better but train slower.">i</span></span>
         <input name="batch_size" type="number" min="1" step="1" value="32" placeholder="Leave empty for auto">
       </label>
-      <label>
-        Epochs (MLP)
+      <label class="mlp-only">
+        <span class="label-line">Epochs (MLP) <span class="help-dot" title="Maximum full passes over training data for MLP.">i</span></span>
         <input name="epochs" type="number" min="10" step="10" value="200">
       </label>
       <button class="btn btn-primary" type="submit">Start Training Job</button>
     </form>
-    <p id="mlpHint" class="status">MLP-only fields are editable at all times. For non-MLP models they are ignored.</p>
+    <p id="mlpHint" class="status">MLP-specific settings are shown only when MLP is selected.</p>
+    <details class="inline-details">
+      <summary>How are "samples from rounds" calculated?</summary>
+      <p id="sampleFormula" class="form-note">Each game session with <code>n</code> rounds contributes <code>max(0, n - lookback)</code> samples.</p>
+    </details>
     <p id="readinessStatus" class="status">Checking training readiness...</p>
   </div>
 

@@ -1,0 +1,19 @@
+/training
+-- mouse rollover tips/explanations for Model, Lookback, etc.
+-- short descriptions for Model options
+-- declutter: only show MLP hyperparams when MLP selected
+-- explain "samples from rounds" calculation
+
+
+/play
+--turn off latency logging, minimize latency display (client,server,etc)
+--animation (r/p/s icons extending off the either side to show moves made by both opponents, fading away after 8 or 10 moves)
+--agent vs. agent play (heuristic vs model, model vs model, heuristic vs heuristic, in addition to human player vs either)
+--remove "- heuristic" from list of agents (unnecessary clutter)
+
+/rl
+-- rollover explanations for alpha, gamma, step/ep, eps
+-- why minimum 50 steps/ep? How about 30? (Most human games will be 25-50 eps)
+-- explain "self-play against a rotating heuristic opponent pool" better -- rotating how? which heuristic opponents?
+
+/splash

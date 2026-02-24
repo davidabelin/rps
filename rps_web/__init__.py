@@ -12,6 +12,32 @@ from rps_training.jobs import TrainingJobManager
 from rps_web.runtime import GameRuntimeCache
 
 
+def _read_secret_version(secret_version_name: str) -> str:
+    """Read one secret payload from Secret Manager by full version resource name."""
+
+    from google.cloud import secretmanager
+
+    client = secretmanager.SecretManagerServiceClient()
+    response = client.access_secret_version(request={"name": secret_version_name})
+    return response.payload.data.decode("utf-8")
+
+
+def _resolve_secret_into_config(app: Flask, *, target_key: str, source_key: str) -> None:
+    """Populate a config value from Secret Manager when direct value is empty."""
+
+    if str(app.config.get(target_key, "")).strip():
+        return
+    secret_version_name = str(app.config.get(source_key, "")).strip()
+    if not secret_version_name:
+        return
+    try:
+        app.config[target_key] = _read_secret_version(secret_version_name)
+    except Exception as exc:
+        raise RuntimeError(
+            f"Failed loading {target_key} from Secret Manager secret version '{secret_version_name}': {exc}"
+        ) from exc
+
+
 def create_app(config: dict | None = None) -> Flask:
     """Create and configure the Flask application instance.
 
@@ -37,6 +63,7 @@ def create_app(config: dict | None = None) -> Flask:
     app.config.from_mapping(
         SECRET_KEY="dev-only-secret-key-change-me",
         DATABASE_URL=os.getenv("DATABASE_URL", ""),
+        DATABASE_URL_SECRET=os.getenv("DATABASE_URL_SECRET", ""),
         DB_PATH=os.getenv("DB_PATH", str(data_dir / "rps.db")),
         EVENTS_DIR=os.getenv("EVENTS_DIR", str(data_dir / "events")),
         MODELS_DIR=os.getenv("MODELS_DIR", str(data_dir / "models")),
@@ -48,13 +75,27 @@ def create_app(config: dict | None = None) -> Flask:
         TASKS_QUEUE=os.getenv("TASKS_QUEUE", ""),
         TRAINING_WORKER_URL=os.getenv("TRAINING_WORKER_URL", ""),
         TRAINING_WORKER_TOKEN=os.getenv("TRAINING_WORKER_TOKEN", ""),
+        TRAINING_WORKER_TOKEN_SECRET=os.getenv("TRAINING_WORKER_TOKEN_SECRET", ""),
         TRAINING_WORKER_SERVICE_ACCOUNT=os.getenv("TRAINING_WORKER_SERVICE_ACCOUNT", ""),
         INTERNAL_WORKER_TOKEN=os.getenv("INTERNAL_WORKER_TOKEN", ""),
+        INTERNAL_WORKER_TOKEN_SECRET=os.getenv("INTERNAL_WORKER_TOKEN_SECRET", ""),
         ROUND_EVENT_LOGGING_MODE=os.getenv("ROUND_EVENT_LOGGING_MODE", "auto"),
         LATENCY_EVENT_LOGGING_MODE=os.getenv("LATENCY_EVENT_LOGGING_MODE", "on"),
     )
     if config:
         app.config.update(config)
+
+    _resolve_secret_into_config(app, target_key="DATABASE_URL", source_key="DATABASE_URL_SECRET")
+    _resolve_secret_into_config(
+        app,
+        target_key="TRAINING_WORKER_TOKEN",
+        source_key="TRAINING_WORKER_TOKEN_SECRET",
+    )
+    _resolve_secret_into_config(
+        app,
+        target_key="INTERNAL_WORKER_TOKEN",
+        source_key="INTERNAL_WORKER_TOKEN_SECRET",
+    )
 
     database_target = app.config["DATABASE_URL"] or app.config["DB_PATH"]
     repository = RPSRepository(database_target)

@@ -5,7 +5,8 @@ beta_settings:
   cloud_sql_instances: directed-sonar-429119-u2:us-west3:rps-sql
 
 env_variables:
-  DATABASE_URL: "postgresql+pg8000://rps_app:pa55w0rd@/rps?unix_sock=/cloudsql/directed-sonar-429119-u2:us-west3:rps-sql/.s.PGSQL.5432"
+  DATABASE_URL: ""
+  DATABASE_URL_SECRET: projects/directed-sonar-429119-u2/secrets/rps-database-url/versions/latest
 
   DB_PATH: /tmp/rps.db
   EVENTS_DIR: gs://directed-sonar-rps-data/events
@@ -16,8 +17,10 @@ env_variables:
   TASKS_LOCATION: us-west3
   TASKS_QUEUE: rps-training
   TRAINING_WORKER_URL: https://directed-sonar-429119-u2.uw.r.appspot.com
-  TRAINING_WORKER_TOKEN: N43GdTyvV9UYubWrNtav_1i7Jtg77x0Ym4Mus7AzCfTaQKZl10ZFemFM1joCufCH
-  INTERNAL_WORKER_TOKEN: N43GdTyvV9UYubWrNtav_1i7Jtg77x0Ym4Mus7AzCfTaQKZl10ZFemFM1joCufCH
+  TRAINING_WORKER_TOKEN: ""
+  TRAINING_WORKER_TOKEN_SECRET: projects/directed-sonar-429119-u2/secrets/rps-worker-token/versions/latest
+  INTERNAL_WORKER_TOKEN: ""
+  INTERNAL_WORKER_TOKEN_SECRET: projects/directed-sonar-429119-u2/secrets/rps-worker-token/versions/latest
   ROUND_EVENT_LOGGING_MODE: auto
   LATENCY_EVENT_LOGGING_MODE: on
 

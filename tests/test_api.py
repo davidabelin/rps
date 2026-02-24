@@ -260,6 +260,25 @@ def test_worker_token_falls_back_to_internal_token(tmp_path: Path):
     assert manager.worker_token == "abc123"
 
 
+def test_create_app_loads_database_url_from_secret(monkeypatch, tmp_path: Path):
+    def _fake_read_secret(version_name: str) -> str:
+        assert version_name == "projects/p/secrets/db-url/versions/latest"
+        return f"sqlite+pysqlite:///{(tmp_path / 'secret.db').as_posix()}"
+
+    monkeypatch.setattr("rps_web._read_secret_version", _fake_read_secret)
+    app = create_app(
+        {
+            "TESTING": True,
+            "DATABASE_URL": "",
+            "DATABASE_URL_SECRET": "projects/p/secrets/db-url/versions/latest",
+            "EVENTS_DIR": str(tmp_path / "events"),
+            "MODELS_DIR": str(tmp_path / "models"),
+            "EXPORTS_DIR": str(tmp_path / "exports"),
+        }
+    )
+    assert str(app.config["DATABASE_URL"]).startswith("sqlite+pysqlite:///")
+
+
 def test_rl_job_lifecycle_creates_model(client):
     create_job = client.post(
         "/api/v1/rl/jobs",

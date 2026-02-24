@@ -8,7 +8,10 @@
   const hiddenLayer2Input = trainForm.querySelector('[name="hidden_layer_2"]');
   const batchSizeInput = trainForm.querySelector('[name="batch_size"]');
   const epochsInput = trainForm.querySelector('[name="epochs"]');
+  const mlpFields = Array.from(trainForm.querySelectorAll(".mlp-only"));
+  const modelDescription = document.getElementById("modelDescription");
   const mlpHint = document.getElementById("mlpHint");
+  const sampleFormula = document.getElementById("sampleFormula");
   const readinessStatus = document.getElementById("readinessStatus");
   const jobStatus = document.getElementById("jobStatus");
   const jobProgress = document.getElementById("jobProgress");
@@ -27,6 +30,11 @@
   let pollTimer = null;
   let eventSource = null;
   let chartPoints = [];
+  const modelDescriptions = {
+    decision_tree: "Decision Tree: fast, interpretable baseline for tabular game patterns.",
+    mlp: "MLP: neural baseline that can model richer nonlinear patterns. Needs more data and tuning.",
+    frequency: "Frequency baseline: predicts from observed context frequencies. Strong sanity-check model.",
+  };
   let benchmarkSuites = {
     core: ["quincy", "abbey", "kris", "mrugesh"],
     extended: ["quincy", "abbey", "kris", "mrugesh", "random", "rock", "paper", "scissors", "nash_equilibrium", "switcher"],
@@ -42,17 +50,21 @@
   }
 
   function toPayload(formData) {
-    const batchRaw = String(formData.get("batch_size")).trim();
-    const hidden1 = Number(formData.get("hidden_layer_1"));
-    const hidden2 = Number(formData.get("hidden_layer_2"));
-    const hiddenLayers = [hidden1, hidden2].filter((value) => Number.isFinite(value) && value > 0);
+    const modelType = String(formData.get("model_type") || "decision_tree");
+    const isMlp = modelType === "mlp";
+    const hidden1 = Number(hiddenLayer1Input.value || 64);
+    const hidden2 = Number(hiddenLayer2Input.value || 32);
+    const hiddenLayers = isMlp
+      ? [hidden1, hidden2].filter((value) => Number.isFinite(value) && value > 0)
+      : [64, 32];
+    const batchRaw = isMlp ? String(batchSizeInput.value || "").trim() : "auto";
     return {
-      model_type: formData.get("model_type"),
+      model_type: modelType,
       lookback: Number(formData.get("lookback")),
       learning_rate: Number(formData.get("learning_rate")),
       hidden_layer_sizes: hiddenLayers.length ? hiddenLayers : [64, 32],
       batch_size: batchRaw === "" ? "auto" : batchRaw,
-      epochs: Number(formData.get("epochs")),
+      epochs: isMlp ? Number(epochsInput.value || 200) : 200,
       test_size: 0.2,
       random_state: 42,
     };
@@ -66,13 +78,29 @@
     jobMetrics.textContent = JSON.stringify(job.metrics, null, 2);
   }
 
+  function updateModelDescription() {
+    const modelType = modelTypeInput.value;
+    if (modelDescription) {
+      modelDescription.textContent = modelDescriptions[modelType] || "Model description unavailable.";
+    }
+  }
+
   function updateMlpHint() {
     const isMlp = modelTypeInput.value === "mlp";
+    mlpFields.forEach((field) => {
+      field.classList.toggle("is-hidden", !isMlp);
+      field.setAttribute("aria-hidden", String(!isMlp));
+      const input = field.querySelector("input, select, textarea");
+      if (input) {
+        input.disabled = !isMlp;
+      }
+    });
     if (isMlp) {
       mlpHint.textContent = "MLP mode: hidden layers, batch size, and epochs are used.";
     } else {
-      mlpHint.textContent = "Non-MLP mode: hidden layers, batch size, and epochs are ignored.";
+      mlpHint.textContent = "Non-MLP mode: MLP-only settings are hidden and ignored.";
     }
+    updateModelDescription();
   }
 
   async function fetchReadiness() {
@@ -90,6 +118,11 @@
       text += ` scikit-learn unavailable: ${info.sklearn_import_error || "import failed"}.`;
     }
     readinessStatus.textContent = text;
+    if (sampleFormula) {
+      const formula = info.sample_formula || "Each session contributes max(0, rounds - lookback) samples.";
+      const sessionPart = typeof info.session_count === "number" ? ` Sessions analyzed: ${info.session_count}.` : "";
+      sampleFormula.textContent = `${formula}${sessionPart}`;
+    }
   }
 
   function renderChart() {
