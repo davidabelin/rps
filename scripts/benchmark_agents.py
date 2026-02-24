@@ -39,6 +39,13 @@ def main() -> int:
     parser.add_argument("--agent", type=str, default="markov")
     parser.add_argument("--rounds", type=int, default=1000)
     parser.add_argument("--seed", type=int, default=7)
+    parser.add_argument("--suite", type=str, default="core", choices=["core", "extended"])
+    parser.add_argument(
+        "--bots",
+        type=str,
+        default="",
+        help="Optional comma-separated bot names. Overrides --suite when provided.",
+    )
     parser.add_argument("--db-path", type=str, default="data/rps.db")
     parser.add_argument("--output", type=str, default="data/exports")
     args = parser.parse_args()
@@ -46,7 +53,14 @@ def main() -> int:
     repository = RPSRepository(args.db_path)
     repository.init_schema()
     factory = resolve_agent(args.agent, repository)
-    result = benchmark_agent(factory, rounds=args.rounds, seed=args.seed)
+    bots = [part.strip() for part in args.bots.split(",") if part.strip()]
+    result = benchmark_agent(
+        factory,
+        rounds=args.rounds,
+        seed=args.seed,
+        suite=args.suite,
+        bots=bots or None,
+    )
 
     output_dir = Path(args.output)
     output_dir.mkdir(parents=True, exist_ok=True)

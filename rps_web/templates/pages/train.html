@@ -58,11 +58,16 @@
 
   <div class="panel">
     <h2>Benchmark Against Canonical Bots</h2>
-    <p>Target: non-tie win rate of at least <strong>0.60</strong> across quincy, abbey, kris, and mrugesh.</p>
+    <p id="benchmarkSuiteSummary">Target: non-tie win rate of at least <strong>0.60</strong> across quincy, abbey, kris, and mrugesh.</p>
     <div class="controls-row">
       <label for="benchmarkAgentSelect">Agent</label>
       <select id="benchmarkAgentSelect">
         <option value="active_model">active_model</option>
+      </select>
+      <label for="benchmarkSuiteSelect">Suite</label>
+      <select id="benchmarkSuiteSelect">
+        <option value="core">core</option>
+        <option value="extended">extended</option>
       </select>
       <label for="benchmarkRoundsInput">Rounds / bot</label>
       <input id="benchmarkRoundsInput" type="number" min="50" step="50" value="400">

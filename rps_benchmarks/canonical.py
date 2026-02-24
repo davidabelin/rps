@@ -1,4 +1,4 @@
-"""Canonical benchmark bot implementations and symbol/action adapters."""
+"""Canonical benchmark bots plus benchmark-suite definitions."""
 
 from __future__ import annotations
 
@@ -121,17 +121,82 @@ class RandomBot:
     def __init__(self, seed: int = 7) -> None:
         """Initialize RNG with optional seed."""
 
+        self._seed = int(seed)
         self._rng = Random(seed)
 
     def reset(self) -> None:
-        """No-op: RNG state is intentionally persistent."""
+        """Reset RNG to seed for deterministic benchmark runs."""
 
-        return None
+        self._rng = Random(self._seed)
 
     def play(self, _prev: str) -> str:
         """Sample one random symbol."""
 
         return self._rng.choice(["R", "P", "S"])
+
+
+@dataclass
+class ConstantSymbolBot:
+    """Play a fixed symbol each round."""
+
+    symbol: str
+
+    def reset(self) -> None:
+        """No-op: constant policies are stateless."""
+
+        return None
+
+    def play(self, _prev: str) -> str:
+        """Return configured fixed symbol."""
+
+        return self.symbol
+
+
+class NashEquilibriumBot:
+    """Uniform mixed-strategy baseline bot."""
+
+    def __init__(self, seed: int = 7) -> None:
+        """Initialize deterministic RNG stream."""
+
+        self._seed = int(seed)
+        self._rng = Random(seed)
+
+    def reset(self) -> None:
+        """Reset RNG to seed for deterministic benchmark runs."""
+
+        self._rng = Random(self._seed)
+
+    def play(self, _prev: str) -> str:
+        """Sample one action uniformly from R/P/S."""
+
+        return self._rng.choice(["R", "P", "S"])
+
+
+class SwitcherBot:
+    """Non-stationary bot that switches strategy by training phase."""
+
+    def __init__(self, phase_length: int = 100) -> None:
+        """Initialize phase length and internal step counter."""
+
+        self._phase_length = int(phase_length)
+        self._step = 0
+
+    def reset(self) -> None:
+        """Reset phase step counter."""
+
+        self._step = 0
+
+    def play(self, prev_opponent_play: str) -> str:
+        """Play phase-dependent strategy: constant -> cycle -> reactive."""
+
+        step = self._step
+        self._step += 1
+        if step < self._phase_length:
+            return "R"
+        if step < self._phase_length * 2:
+            cycle = ["R", "P", "S"]
+            return cycle[(step - self._phase_length) % len(cycle)]
+        return _counter(prev_opponent_play or "R")
 
 
 CANONICAL_BOT_FACTORIES = {
@@ -140,7 +205,41 @@ CANONICAL_BOT_FACTORIES = {
     "kris": KrisBot,
     "mrugesh": MrugeshBot,
     "random": RandomBot,
+    "rock": lambda: ConstantSymbolBot("R"),
+    "paper": lambda: ConstantSymbolBot("P"),
+    "scissors": lambda: ConstantSymbolBot("S"),
+    "nash_equilibrium": NashEquilibriumBot,
+    "switcher": SwitcherBot,
 }
+
+CORE_BENCHMARK_BOTS: tuple[str, ...] = ("quincy", "abbey", "kris", "mrugesh")
+EXTENDED_BENCHMARK_BOTS: tuple[str, ...] = CORE_BENCHMARK_BOTS + (
+    "random",
+    "rock",
+    "paper",
+    "scissors",
+    "nash_equilibrium",
+    "switcher",
+)
+CANONICAL_BENCHMARK_SUITES: dict[str, tuple[str, ...]] = {
+    "core": CORE_BENCHMARK_BOTS,
+    "extended": EXTENDED_BENCHMARK_BOTS,
+}
+
+
+def get_benchmark_suite(name: str) -> tuple[str, ...]:
+    """Resolve benchmark-suite name to ordered bot ids."""
+
+    suite_key = str(name).strip().lower()
+    if suite_key not in CANONICAL_BENCHMARK_SUITES:
+        raise ValueError(f"Unknown benchmark suite '{name}'.")
+    return CANONICAL_BENCHMARK_SUITES[suite_key]
+
+
+def list_benchmark_suites() -> dict[str, list[str]]:
+    """Return benchmark-suite map with list values for JSON APIs."""
+
+    return {key: list(value) for key, value in CANONICAL_BENCHMARK_SUITES.items()}
 
 
 def action_to_symbol(action: int) -> str:

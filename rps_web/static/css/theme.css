@@ -164,6 +164,11 @@ h2 {
   justify-content: center;
 }
 
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .btn-primary {
   color: #fff;
   background: linear-gradient(135deg, var(--accent), #0f9f8d);
@@ -242,6 +247,11 @@ input[type="number"] {
   color: var(--muted);
 }
 
+.action-chip.pending {
+  color: var(--muted);
+  background: #f2ece3;
+}
+
 .versus {
   font-weight: 700;
   font-size: 1.2rem;
@@ -251,6 +261,10 @@ input[type="number"] {
 .outcome {
   margin-top: 0.8rem;
   font-weight: 600;
+}
+
+.outcome.pending {
+  color: var(--accent);
 }
 
 .outcome.win {

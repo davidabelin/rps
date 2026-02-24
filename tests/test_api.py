@@ -128,9 +128,50 @@ def test_benchmark_endpoint_returns_canonical_results(client):
     payload = response.get_json()
     assert payload["agent"] == "markov"
     benchmark = payload["benchmark"]
+    assert benchmark["suite"] == "core"
     assert "overall_non_tie_win_rate" in benchmark
     bots = {item["bot"] for item in benchmark["results"]}
     assert bots == {"quincy", "abbey", "kris", "mrugesh"}
+
+
+def test_benchmark_endpoint_supports_extended_suite(client):
+    response = client.post(
+        "/api/v1/benchmarks/run",
+        json={"agent": "markov", "rounds": 100, "seed": 9, "suite": "extended"},
+    )
+    assert response.status_code == 200
+    benchmark = response.get_json()["benchmark"]
+    assert benchmark["suite"] == "extended"
+    bots = {item["bot"] for item in benchmark["results"]}
+    assert {
+        "quincy",
+        "abbey",
+        "kris",
+        "mrugesh",
+        "random",
+        "rock",
+        "paper",
+        "scissors",
+        "nash_equilibrium",
+        "switcher",
+    } <= bots
+
+
+def test_benchmark_suite_listing_endpoint(client):
+    response = client.get("/api/v1/benchmarks/suites")
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["default_suite"] == "core"
+    assert "core" in payload["suites"]
+    assert "extended" in payload["suites"]
+
+
+def test_benchmark_endpoint_rejects_unknown_suite(client):
+    response = client.post("/api/v1/benchmarks/run", json={"agent": "markov", "rounds": 120, "suite": "bogus"})
+    assert response.status_code == 400
+    payload = response.get_json()
+    assert payload is not None
+    assert "Unknown benchmark suite" in payload["error"]
 
 
 def test_benchmark_endpoint_returns_json_error_on_internal_failure(client, monkeypatch):

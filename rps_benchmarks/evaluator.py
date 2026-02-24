@@ -6,7 +6,12 @@ from dataclasses import dataclass
 from typing import Callable
 
 from rps_agents.base import AgentProtocol
-from rps_benchmarks.canonical import CANONICAL_BOT_FACTORIES, action_to_symbol, symbol_to_action
+from rps_benchmarks.canonical import (
+    CANONICAL_BOT_FACTORIES,
+    action_to_symbol,
+    get_benchmark_suite,
+    symbol_to_action,
+)
 from rps_core.scoring import score_round
 from rps_core.types import RoundObservation, RoundTransition
 
@@ -61,7 +66,7 @@ def _play_against_bot(agent_factory: Callable[[], AgentProtocol], bot_name: str,
     """
 
     bot_factory = CANONICAL_BOT_FACTORIES[bot_name]
-    if bot_name == "random":
+    if bot_name in {"random", "nash_equilibrium"}:
         bot = bot_factory(seed=seed or 7)
     else:
         bot = bot_factory()
@@ -104,7 +109,27 @@ def _play_against_bot(agent_factory: Callable[[], AgentProtocol], bot_name: str,
     return payload
 
 
-def benchmark_agent(agent_factory: Callable[[], AgentProtocol], rounds: int = 1000, seed: int = 7) -> dict:
+def _resolve_bots(suite: str, bots: list[str] | None) -> tuple[str, list[str]]:
+    """Resolve requested benchmark opponent set."""
+
+    if bots:
+        normalized = [str(item).strip().lower() for item in bots if str(item).strip()]
+        if not normalized:
+            raise ValueError("Custom bot list is empty.")
+        unknown = [item for item in normalized if item not in CANONICAL_BOT_FACTORIES]
+        if unknown:
+            raise ValueError(f"Unknown benchmark bot(s): {', '.join(unknown)}")
+        return "custom", normalized
+    return suite, list(get_benchmark_suite(suite))
+
+
+def benchmark_agent(
+    agent_factory: Callable[[], AgentProtocol],
+    rounds: int = 1000,
+    seed: int = 7,
+    suite: str = "core",
+    bots: list[str] | None = None,
+) -> dict:
     """Evaluate one agent against standard canonical bot set.
 
     Parameters
@@ -115,6 +140,10 @@ def benchmark_agent(agent_factory: Callable[[], AgentProtocol], rounds: int = 10
         Rounds played against each canonical bot.
     seed : int, default=7
         Base seed; per-bot offsets are applied for variance.
+    suite : str, default="core"
+        Benchmark suite name. Ignored when ``bots`` is provided.
+    bots : list[str] | None, default=None
+        Optional explicit list of benchmark bot names.
 
     Returns
     -------
@@ -122,19 +151,26 @@ def benchmark_agent(agent_factory: Callable[[], AgentProtocol], rounds: int = 10
         Aggregate and per-bot benchmark metrics.
     """
 
-    bots = ["quincy", "abbey", "kris", "mrugesh"]
+    resolved_suite, resolved_bots = _resolve_bots(suite=suite, bots=bots)
     results = []
-    for offset, bot in enumerate(bots):
+    for offset, bot in enumerate(resolved_bots):
         results.append(_play_against_bot(agent_factory, bot_name=bot, rounds=rounds, seed=seed + offset))
     overall_non_tie = sum(item["wins"] for item in results) / max(
         1, sum(item["wins"] + item["losses"] for item in results)
     )
     overall_win = sum(item["wins"] for item in results) / max(1, sum(item["rounds"] for item in results))
+    target_by_suite = {
+        "core": 0.60,
+        "extended": 0.55,
+    }
+    target = target_by_suite.get(resolved_suite)
     return {
+        "suite": resolved_suite,
+        "bots": resolved_bots,
         "rounds_per_bot": rounds,
         "overall_win_rate": overall_win,
         "overall_non_tie_win_rate": overall_non_tie,
-        "target_non_tie_win_rate": 0.60,
-        "meets_target": overall_non_tie >= 0.60,
+        "target_non_tie_win_rate": target,
+        "meets_target": (overall_non_tie >= target) if isinstance(target, float) else None,
         "results": results,
     }

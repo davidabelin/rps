@@ -5,7 +5,7 @@ from __future__ import annotations
 from flask import Blueprint, current_app, jsonify, request
 
 from rps_agents import ModelBackedAgent, build_heuristic_agent, list_agent_specs
-from rps_benchmarks import benchmark_agent
+from rps_benchmarks import benchmark_agent, list_benchmark_suites
 
 benchmarks_bp = Blueprint("benchmarks_api", __name__, url_prefix="/api/v1/benchmarks")
 
@@ -39,6 +39,10 @@ def run_benchmark():
     agent_name = str(payload.get("agent", "markov"))
     rounds = int(payload.get("rounds", 1000))
     seed = int(payload.get("seed", 7))
+    suite = str(payload.get("suite", "core")).strip().lower()
+    bots = payload.get("bots")
+    if bots is not None and not isinstance(bots, list):
+        return jsonify({"error": "bots must be a JSON array of bot names when provided."}), 400
     if rounds < 50:
         return jsonify({"error": "rounds must be at least 50 for meaningful benchmark results."}), 400
     try:
@@ -46,7 +50,27 @@ def run_benchmark():
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     try:
-        results = benchmark_agent(agent_factory=agent_factory, rounds=rounds, seed=seed)
+        results = benchmark_agent(
+            agent_factory=agent_factory,
+            rounds=rounds,
+            seed=seed,
+            suite=suite,
+            bots=bots,
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
     except Exception as exc:  # pragma: no cover
         return jsonify({"error": f"Benchmark failed: {exc}"}), 500
     return jsonify({"agent": agent_name, "benchmark": results})
+
+
+@benchmarks_bp.get("/suites")
+def list_benchmark_suites_endpoint():
+    """Return named benchmark suites and bot membership."""
+
+    return jsonify(
+        {
+            "default_suite": "core",
+            "suites": list_benchmark_suites(),
+        }
+    )

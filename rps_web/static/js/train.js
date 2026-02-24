@@ -17,6 +17,8 @@
   const modelTableBody = document.getElementById("modelTableBody");
   const refreshModelsBtn = document.getElementById("refreshModelsBtn");
   const benchmarkAgentSelect = document.getElementById("benchmarkAgentSelect");
+  const benchmarkSuiteSelect = document.getElementById("benchmarkSuiteSelect");
+  const benchmarkSuiteSummary = document.getElementById("benchmarkSuiteSummary");
   const benchmarkRoundsInput = document.getElementById("benchmarkRoundsInput");
   const runBenchmarkBtn = document.getElementById("runBenchmarkBtn");
   const benchmarkOutput = document.getElementById("benchmarkOutput");
@@ -25,6 +27,10 @@
   let pollTimer = null;
   let eventSource = null;
   let chartPoints = [];
+  let benchmarkSuites = {
+    core: ["quincy", "abbey", "kris", "mrugesh"],
+    extended: ["quincy", "abbey", "kris", "mrugesh", "random", "rock", "paper", "scissors", "nash_equilibrium", "switcher"],
+  };
 
   function setStatus(text) {
     jobStatus.textContent = text;
@@ -140,10 +146,12 @@
   }
 
   async function runBenchmark() {
+    const suite = benchmarkSuiteSelect.value || "core";
     const payload = {
       agent: benchmarkAgentSelect.value,
       rounds: Number(benchmarkRoundsInput.value || 1000),
       seed: 7,
+      suite,
     };
     benchmarkOutput.textContent = "Running benchmark...";
     const response = await fetch("/api/v1/benchmarks/run", {
@@ -169,6 +177,35 @@
       return;
     }
     benchmarkOutput.textContent = JSON.stringify(body.benchmark, null, 2);
+  }
+
+  function updateBenchmarkSuiteSummary() {
+    const suite = benchmarkSuiteSelect.value || "core";
+    const bots = benchmarkSuites[suite] || [];
+    if (suite === "core") {
+      benchmarkSuiteSummary.innerHTML = "Target: non-tie win rate of at least <strong>0.60</strong> across quincy, abbey, kris, and mrugesh.";
+      return;
+    }
+    const botsPreview = bots.join(", ");
+    benchmarkSuiteSummary.innerHTML = `Extended suite: broader stress-test across <strong>${bots.length}</strong> opponents (${botsPreview}). Suggested target: <strong>0.55</strong> non-tie win rate.`;
+  }
+
+  async function fetchBenchmarkSuites() {
+    const response = await fetch("/api/v1/benchmarks/suites");
+    const body = await response.json();
+    if (!response.ok) {
+      throw new Error(body.error || "Failed to fetch benchmark suites");
+    }
+    benchmarkSuites = body.suites || benchmarkSuites;
+    benchmarkSuiteSelect.innerHTML = "";
+    Object.keys(benchmarkSuites).forEach((suiteName) => {
+      const option = document.createElement("option");
+      option.value = suiteName;
+      option.textContent = `${suiteName} (${(benchmarkSuites[suiteName] || []).length})`;
+      benchmarkSuiteSelect.appendChild(option);
+    });
+    benchmarkSuiteSelect.value = body.default_suite || "core";
+    updateBenchmarkSuiteSummary();
   }
 
   async function fetchModels() {
@@ -341,8 +378,13 @@
     });
   });
 
-  Promise.all([fetchModels(), fetchAgentsForBenchmark(), fetchReadiness()]).catch((err) => {
+  benchmarkSuiteSelect.addEventListener("change", () => {
+    updateBenchmarkSuiteSummary();
+  });
+
+  Promise.all([fetchModels(), fetchAgentsForBenchmark(), fetchReadiness(), fetchBenchmarkSuites()]).catch((err) => {
     setStatus(`Unable to initialize training page: ${String(err)}`);
   });
   updateMlpHint();
+  updateBenchmarkSuiteSummary();
 })();
