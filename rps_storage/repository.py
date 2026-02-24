@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Repository layer for app metadata using SQLite or PostgreSQL via SQLAlchemy.
 
 The repository exposes dict-based CRUD helpers consumed by web routes and job
@@ -8,6 +6,8 @@ managers. It supports:
 - local SQLite paths for development/tests
 - SQL database URLs (Cloud SQL PostgreSQL in production)
 """
+
+from __future__ import annotations
 
 import json
 from datetime import UTC, datetime

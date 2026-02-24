@@ -1,3 +1,5 @@
+"""Gunicorn/Flask entrypoint for the RPS web application."""
+
 from rps_web import create_app
 
 

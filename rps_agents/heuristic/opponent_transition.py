@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Opponent transition-matrix heuristic."""
+
+from __future__ import annotations
 
 import numpy as np
 

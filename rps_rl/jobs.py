@@ -1,3 +1,5 @@
+"""Asynchronous orchestration for RL training jobs."""
+
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
@@ -10,7 +12,11 @@ from rps_rl.trainer import RLTrainConfig, train_q_policy
 
 
 class RLJobManager:
+    """Manage RL job submission and lifecycle persistence."""
+
     def __init__(self, repository: RPSRepository, models_dir: str, max_workers: int = 1) -> None:
+        """Initialize repository handle and local executor."""
+
         self.repository = repository
         self.models_dir = str(models_dir)
         if not is_gcs_uri(self.models_dir):
@@ -18,6 +24,8 @@ class RLJobManager:
         self.executor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="rps-rl")
 
     def submit_job(self, payload: dict) -> dict:
+        """Persist and asynchronously start one RL training job."""
+
         config = self._config_from_payload(payload)
         job = self.repository.create_rl_job(payload)
         job_id = int(job["id"])
@@ -26,6 +34,8 @@ class RLJobManager:
 
     @staticmethod
     def _config_from_payload(payload: dict) -> RLTrainConfig:
+        """Normalize API payload into ``RLTrainConfig``."""
+
         opponents = payload.get("opponents")
         if opponents is None:
             opponents_tuple = RLTrainConfig().opponents
@@ -46,6 +56,8 @@ class RLJobManager:
         )
 
     def _run_job(self, job_id: int, config: RLTrainConfig) -> None:
+        """Execute end-to-end RL training lifecycle for one job id."""
+
         try:
             self.repository.update_rl_job(job_id, status="running", progress=0.05)
             timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
@@ -72,4 +84,6 @@ class RLJobManager:
             self.repository.update_rl_job(job_id, status="failed", progress=1.0, error_message=str(exc))
 
     def shutdown(self) -> None:
+        """Release local threadpool resources."""
+
         self.executor.shutdown(wait=False)

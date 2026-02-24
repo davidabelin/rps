@@ -1,3 +1,5 @@
+"""RL job API routes and event streams."""
+
 from __future__ import annotations
 
 import json
@@ -9,14 +11,20 @@ rl_bp = Blueprint("rl_api", __name__, url_prefix="/api/v1/rl")
 
 
 def _repo():
+    """Return storage repository extension."""
+
     return current_app.extensions["repository"]
 
 
 def _jobs():
+    """Return RL job manager extension."""
+
     return current_app.extensions["rl_jobs"]
 
 
 def _decode(raw):
+    """Best-effort decode for JSON-in-text columns."""
+
     if raw is None:
         return None
     try:
@@ -26,6 +34,8 @@ def _decode(raw):
 
 
 def _serialize(job: dict) -> dict:
+    """Serialize RL job row to API response shape."""
+
     return {
         "id": int(job["id"]),
         "status": job["status"],
@@ -41,6 +51,8 @@ def _serialize(job: dict) -> dict:
 
 @rl_bp.get("/status")
 def rl_status():
+    """Return lightweight RL subsystem status."""
+
     return jsonify(
         {
             "status": "enabled",
@@ -51,6 +63,8 @@ def rl_status():
 
 @rl_bp.post("/jobs")
 def create_rl_job():
+    """Create RL training job with defaults for missing parameters."""
+
     payload = request.get_json(silent=True) or {}
     payload.setdefault("episodes", 300)
     payload.setdefault("steps_per_episode", 300)
@@ -79,12 +93,16 @@ def create_rl_job():
 
 @rl_bp.get("/jobs")
 def list_rl_jobs():
+    """List recent RL jobs."""
+
     jobs = _repo().list_rl_jobs(limit=100)
     return jsonify({"jobs": [_serialize(job) for job in jobs]})
 
 
 @rl_bp.get("/jobs/<int:job_id>")
 def get_rl_job(job_id: int):
+    """Fetch one RL job by id."""
+
     job = _repo().get_rl_job(job_id)
     if job is None:
         return jsonify({"error": "RL job not found."}), 404
@@ -93,11 +111,15 @@ def get_rl_job(job_id: int):
 
 @rl_bp.get("/jobs/<int:job_id>/events")
 def stream_rl_job_events(job_id: int):
+    """Stream RL job updates via server-sent events."""
+
     if _repo().get_rl_job(job_id) is None:
         return jsonify({"error": "RL job not found."}), 404
 
     @stream_with_context
     def event_stream():
+        """Yield RL job updates until terminal state."""
+
         last_payload = None
         while True:
             job = _repo().get_rl_job(job_id)

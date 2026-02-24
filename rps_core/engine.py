@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Round execution helpers for human-vs-agent play loops."""
+
+from __future__ import annotations
 
 from rps_agents.base import AgentProtocol
 from rps_core.scoring import reward_to_outcome, score_round

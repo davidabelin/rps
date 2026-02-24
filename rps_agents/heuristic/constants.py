@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Constant/simple mixed-strategy baseline agents."""
+
+from __future__ import annotations
 
 from dataclasses import dataclass
 

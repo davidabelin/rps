@@ -1,3 +1,5 @@
+"""CLI utility to extract ``%%writefile`` cells from notebooks."""
+
 from __future__ import annotations
 
 import argparse
@@ -6,6 +8,8 @@ from pathlib import Path
 
 
 def extract_writefiles(notebook_path: Path, output_dir: Path, overwrite: bool) -> list[Path]:
+    """Extract files declared via notebook ``%%writefile`` magics."""
+
     notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
     written: list[Path] = []
     for cell in notebook.get("cells", []):
@@ -28,6 +32,8 @@ def extract_writefiles(notebook_path: Path, output_dir: Path, overwrite: bool) -
 
 
 def main() -> int:
+    """Parse arguments and run notebook extraction CLI."""
+
     parser = argparse.ArgumentParser(description="Extract %%writefile cells from a Jupyter notebook.")
     parser.add_argument("--input", required=True, help="Path to the notebook (.ipynb)")
     parser.add_argument("--output", required=True, help="Directory where extracted files will be written")

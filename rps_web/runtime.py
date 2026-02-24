@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """In-memory runtime cache for low-latency gameplay sessions."""
+
+from __future__ import annotations
 
 from collections import OrderedDict
 from dataclasses import dataclass
@@ -25,6 +25,8 @@ class GameRuntimeCache:
     """Thread-safe LRU-style cache of ``GameRuntimeState`` objects."""
 
     def __init__(self, max_entries: int = 256) -> None:
+        """Initialize bounded in-memory cache."""
+
         self.max_entries = max(16, int(max_entries))
         self._lock = RLock()
         self._items: OrderedDict[int, GameRuntimeState] = OrderedDict()

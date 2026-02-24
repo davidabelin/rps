@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Training and model-registry API routes."""
+
+from __future__ import annotations
 
 import json
 import time
@@ -114,6 +114,8 @@ def stream_training_job_events(job_id: int):
 
     @stream_with_context
     def event_stream():
+        """Yield training job updates until terminal state."""
+
         last_payload = None
         while True:
             job = _repo().get_training_job(job_id)

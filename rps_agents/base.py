@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Agent protocol definitions shared by heuristic and model-backed agents."""
+
+from __future__ import annotations
 
 from typing import Protocol
 

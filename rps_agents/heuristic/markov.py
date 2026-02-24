@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Markov-style sequence predictor heuristic."""
+
+from __future__ import annotations
 
 from collections import defaultdict
 

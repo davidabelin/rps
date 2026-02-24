@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Asynchronous orchestration for supervised training jobs."""
+
+from __future__ import annotations
 
 import json
 from concurrent.futures import ThreadPoolExecutor
@@ -51,6 +51,8 @@ class TrainingJobManager:
         worker_token: str | None = None,
         worker_service_account: str | None = None,
     ) -> None:
+        """Initialize job manager runtime and optional Cloud Tasks settings."""
+
         self.repository = repository
         self.models_dir = str(models_dir)
         if not is_gcs_uri(self.models_dir):

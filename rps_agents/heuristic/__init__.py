@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Registry and factory functions for heuristic RPS agents."""
+
+from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Callable

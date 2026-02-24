@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Flask application factory and extension wiring for the RPS web app."""
+
+from __future__ import annotations
 
 import os
 from pathlib import Path

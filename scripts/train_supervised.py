@@ -1,3 +1,5 @@
+"""CLI entry point for supervised model training from stored rounds."""
+
 from __future__ import annotations
 
 import argparse
@@ -15,6 +17,8 @@ from rps_training.supervised import TrainConfig, train_model
 
 
 def main() -> int:
+    """Run supervised training CLI and register resulting model artifact."""
+
     parser = argparse.ArgumentParser(description="Train a supervised RPS model from SQLite round logs.")
     parser.add_argument("--db-path", type=str, default="data/rps.db")
     parser.add_argument("--models-dir", type=str, default="data/models")

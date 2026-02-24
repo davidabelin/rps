@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Ensemble heuristics that combine multiple voter agents."""
+
+from __future__ import annotations
 
 from random import Random
 

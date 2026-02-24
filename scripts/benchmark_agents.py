@@ -1,3 +1,5 @@
+"""CLI entry point for canonical benchmark evaluations."""
+
 from __future__ import annotations
 
 import argparse
@@ -16,6 +18,8 @@ from rps_storage import RPSRepository
 
 
 def resolve_agent(agent_name: str, repository: RPSRepository):
+    """Resolve evaluated agent factory by CLI name."""
+
     available = {spec.name for spec in list_agent_specs()}
     if agent_name == "active_model":
         model = repository.get_active_model()
@@ -29,6 +33,8 @@ def resolve_agent(agent_name: str, repository: RPSRepository):
 
 
 def main() -> int:
+    """Run benchmark CLI and write JSON report."""
+
     parser = argparse.ArgumentParser(description="Benchmark an agent against canonical RPS bots.")
     parser.add_argument("--agent", type=str, default="markov")
     parser.add_argument("--rounds", type=int, default=1000)

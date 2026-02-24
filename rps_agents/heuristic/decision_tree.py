@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Online decision-tree heuristic using rolling local/global features."""
+
+from __future__ import annotations
 
 from dataclasses import dataclass
 

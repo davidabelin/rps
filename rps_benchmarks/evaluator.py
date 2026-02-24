@@ -1,3 +1,5 @@
+"""Benchmark harness for evaluating agents against canonical bots."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -11,12 +13,16 @@ from rps_core.types import RoundObservation, RoundTransition
 
 @dataclass(slots=True)
 class BenchStats:
+    """Mutable benchmark counters for one matchup."""
+
     rounds: int = 0
     wins: int = 0
     losses: int = 0
     ties: int = 0
 
     def record(self, reward: int) -> None:
+        """Accumulate one round outcome from reward sign."""
+
         self.rounds += 1
         if reward > 0:
             self.wins += 1
@@ -26,6 +32,8 @@ class BenchStats:
             self.ties += 1
 
     def as_dict(self) -> dict:
+        """Return summary metrics dictionary for JSON response."""
+
         non_ties = self.wins + self.losses
         return {
             "rounds": self.rounds,
@@ -38,6 +46,20 @@ class BenchStats:
 
 
 def _play_against_bot(agent_factory: Callable[[], AgentProtocol], bot_name: str, rounds: int, seed: int | None) -> dict:
+    """Run one agent-vs-canonical-bot matchup.
+
+    Parameters
+    ----------
+    agent_factory : Callable[[], AgentProtocol]
+        Factory creating a fresh agent instance.
+    bot_name : str
+        Canonical bot identifier.
+    rounds : int
+        Number of rounds to play.
+    seed : int | None
+        Optional seed used for deterministic setup where applicable.
+    """
+
     bot_factory = CANONICAL_BOT_FACTORIES[bot_name]
     if bot_name == "random":
         bot = bot_factory(seed=seed or 7)
@@ -83,6 +105,23 @@ def _play_against_bot(agent_factory: Callable[[], AgentProtocol], bot_name: str,
 
 
 def benchmark_agent(agent_factory: Callable[[], AgentProtocol], rounds: int = 1000, seed: int = 7) -> dict:
+    """Evaluate one agent against standard canonical bot set.
+
+    Parameters
+    ----------
+    agent_factory : Callable[[], AgentProtocol]
+        Factory creating a fresh evaluated agent.
+    rounds : int, default=1000
+        Rounds played against each canonical bot.
+    seed : int, default=7
+        Base seed; per-bot offsets are applied for variance.
+
+    Returns
+    -------
+    dict
+        Aggregate and per-bot benchmark metrics.
+    """
+
     bots = ["quincy", "abbey", "kris", "mrugesh"]
     results = []
     for offset, bot in enumerate(bots):

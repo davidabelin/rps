@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Core typed structures shared across simulation, API, and training code.
 
 Terminology note
@@ -14,6 +12,8 @@ In code, ``RoundObservation.step`` can be interpreted as:
 - the round index within a game session, or
 - the step index within an episode.
 """
+
+from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import IntEnum

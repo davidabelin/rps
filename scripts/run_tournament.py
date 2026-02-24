@@ -1,3 +1,5 @@
+"""CLI entry point for heuristic round-robin tournaments."""
+
 from __future__ import annotations
 
 import argparse
@@ -15,6 +17,8 @@ from rps_core.simulator import leaderboard, run_round_robin
 
 
 def main() -> int:
+    """Run tournament CLI and persist leaderboard report."""
+
     parser = argparse.ArgumentParser(description="Run a round-robin tournament across heuristic agents.")
     parser.add_argument("--episodes", type=int, default=10, help="Number of episodes per matchup")
     parser.add_argument("--steps", type=int, default=300, help="Rounds per episode")

@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Common mixins/utilities shared by heuristic agents."""
+
+from __future__ import annotations
 
 from random import Random
 

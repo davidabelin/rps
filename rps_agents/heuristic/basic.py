@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Baseline reactive heuristic agents for gameplay and benchmarking."""
+
+from __future__ import annotations
 
 from collections import Counter
 

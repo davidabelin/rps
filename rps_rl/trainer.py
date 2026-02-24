@@ -1,3 +1,5 @@
+"""Tabular Q-learning trainer used for current RL baseline."""
+
 from __future__ import annotations
 
 import pickle
@@ -14,6 +16,8 @@ from rps_storage.object_store import write_bytes
 
 
 def _state_index(last_opponent_action: int | None) -> int:
+    """Map previous opponent action to discrete Q-table state id."""
+
     if last_opponent_action is None:
         return 3
     return int(last_opponent_action)
@@ -21,6 +25,8 @@ def _state_index(last_opponent_action: int | None) -> int:
 
 @dataclass(slots=True)
 class RLTrainConfig:
+    """Configuration for tabular self-play training jobs."""
+
     episodes: int = 300
     steps_per_episode: int = 300
     alpha: float = 0.15
@@ -42,6 +48,21 @@ class RLTrainConfig:
 
 
 def train_q_policy(config: RLTrainConfig, artifact_path: str) -> dict:
+    """Train tabular policy via Q-learning against rotating opponents.
+
+    Parameters
+    ----------
+    config : RLTrainConfig
+        Training hyperparameters and opponent pool.
+    artifact_path : str
+        Output destination (local path or ``gs://`` URI).
+
+    Returns
+    -------
+    dict
+        Training metrics and artifact path.
+    """
+
     rng = Random(config.seed)
     np_rng = np.random.default_rng(config.seed)
     q_table = np.zeros((4, 3), dtype=float)

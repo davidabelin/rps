@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Pattern-memory heuristic that maps short histories to likely responses."""
+
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 

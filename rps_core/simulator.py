@@ -1,3 +1,5 @@
+"""Simulation utilities for agent-vs-agent evaluation and tournaments."""
+
 from __future__ import annotations
 
 from collections import defaultdict
@@ -14,12 +16,28 @@ AgentFactory = Callable[[], AgentProtocol]
 
 @dataclass(slots=True)
 class EpisodeResult:
+    """Outcome summary for one agent-vs-agent episode."""
+
     score_a: int
     score_b: int
     ties: int
 
 
 def play_episode(agent_a: AgentProtocol, agent_b: AgentProtocol, steps: int, seed: int | None = None) -> EpisodeResult:
+    """Play a fixed-length episode between two agents.
+
+    Parameters
+    ----------
+    agent_a : AgentProtocol
+        Left-side agent.
+    agent_b : AgentProtocol
+        Right-side agent.
+    steps : int
+        Number of rounds (episode steps).
+    seed : int | None, default=None
+        Optional deterministic seed for agent resets.
+    """
+
     rng = Random(seed)
     agent_a.reset(seed=rng.randint(0, 2**31 - 1))
     agent_b.reset(seed=rng.randint(0, 2**31 - 1))
@@ -65,6 +83,8 @@ def play_episode(agent_a: AgentProtocol, agent_b: AgentProtocol, steps: int, see
 
 
 def run_round_robin(agent_factories: dict[str, AgentFactory], episodes: int, steps: int, seed: int) -> list[dict]:
+    """Run all pairwise matchups for provided agent factories."""
+
     rng = Random(seed)
     agent_names = sorted(agent_factories.keys())
     rows: list[dict] = []
@@ -97,6 +117,8 @@ def run_round_robin(agent_factories: dict[str, AgentFactory], episodes: int, ste
 
 
 def leaderboard(rows: list[dict]) -> list[dict]:
+    """Aggregate round-robin rows into per-agent average rates."""
+
     aggregate = defaultdict(lambda: {"wins": 0.0, "losses": 0.0, "draws": 0.0, "matches": 0})
     for row in rows:
         a = row["agent_a"]

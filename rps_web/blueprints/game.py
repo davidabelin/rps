@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Gameplay API routes for human-vs-agent interactions."""
+
+from __future__ import annotations
 
 from datetime import UTC, datetime
 

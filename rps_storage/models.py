@@ -1,3 +1,5 @@
+"""Typed record views for repository rows."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -5,6 +7,8 @@ from dataclasses import dataclass
 
 @dataclass(slots=True)
 class GameRecord:
+    """Projection of one row from ``games`` table."""
+
     id: int
     agent_name: str
     session_index: int
@@ -18,6 +22,8 @@ class GameRecord:
 
 @dataclass(slots=True)
 class TrainingJobRecord:
+    """Projection of one row from ``training_jobs`` table."""
+
     id: int
     status: str
     model_type: str
@@ -32,6 +38,8 @@ class TrainingJobRecord:
 
 @dataclass(slots=True)
 class ModelRecord:
+    """Projection of one row from ``models`` table."""
+
     id: int
     name: str
     model_type: str
@@ -44,6 +52,8 @@ class ModelRecord:
 
 @dataclass(slots=True)
 class RLJobRecord:
+    """Projection of one row from ``rl_jobs`` table."""
+
     id: int
     status: str
     params_json: str

@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Model-backed agent wrapper used for ``active_model`` gameplay."""
+
+from __future__ import annotations
 
 from random import Random
 

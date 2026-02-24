@@ -1,3 +1,5 @@
+"""Dataset/event export helpers for gameplay-derived training corpora."""
+
 from __future__ import annotations
 
 import json
@@ -9,6 +11,8 @@ from rps_storage.object_store import is_gcs_uri, join_storage_path, write_bytes,
 
 
 def append_round_event(event: dict, events_dir: str) -> str:
+    """Append one round event to local JSONL or per-object GCS path."""
+
     timestamp = datetime.now(UTC)
     payload = json.dumps(event, sort_keys=True) + "\n"
     if is_gcs_uri(events_dir):
@@ -26,6 +30,8 @@ def append_round_event(event: dict, events_dir: str) -> str:
 
 
 def export_rounds_to_jsonl(rounds: list[dict], output_path: str) -> str:
+    """Export round rows as newline-delimited JSON."""
+
     payload = "".join(json.dumps(row, sort_keys=True) + "\n" for row in rounds)
     if is_gcs_uri(output_path):
         return write_text(output_path, payload, content_type="application/x-ndjson; charset=utf-8")
@@ -36,6 +42,14 @@ def export_rounds_to_jsonl(rounds: list[dict], output_path: str) -> str:
 
 
 def export_rounds_to_parquet(rounds: list[dict], output_path: str) -> str:
+    """Export round rows as parquet file/object.
+
+    Raises
+    ------
+    RuntimeError
+        If pandas/parquet backend dependencies are unavailable.
+    """
+
     try:
         import pandas as pd
     except Exception as exc:  # pragma: no cover

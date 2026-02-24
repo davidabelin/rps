@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Storage abstraction for local filesystem and Google Cloud Storage objects."""
+
+from __future__ import annotations
 
 from pathlib import Path
 

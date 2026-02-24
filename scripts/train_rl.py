@@ -1,3 +1,5 @@
+"""CLI entry point for tabular RL policy training."""
+
 from __future__ import annotations
 
 import argparse
@@ -15,6 +17,8 @@ from rps_storage.object_store import is_gcs_uri, join_storage_path
 
 
 def main() -> int:
+    """Run RL training CLI and register resulting model artifact."""
+
     parser = argparse.ArgumentParser(description="Train a tabular RL policy (Q-learning) for RPS.")
     parser.add_argument("--db-path", type=str, default="data/rps.db")
     parser.add_argument("--models-dir", type=str, default="data/models")

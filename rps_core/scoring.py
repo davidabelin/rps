@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Scoring helpers for classic 3-sign Rock-Paper-Scissors."""
+
+from __future__ import annotations
 
 from rps_core.types import Action, Outcome, normalize_action
 

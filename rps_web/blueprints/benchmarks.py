@@ -1,3 +1,5 @@
+"""Benchmark API routes for canonical-bot evaluations."""
+
 from __future__ import annotations
 
 from flask import Blueprint, current_app, jsonify, request
@@ -9,10 +11,14 @@ benchmarks_bp = Blueprint("benchmarks_api", __name__, url_prefix="/api/v1/benchm
 
 
 def _repo():
+    """Return storage repository extension."""
+
     return current_app.extensions["repository"]
 
 
 def _resolve_agent_factory(agent_name: str):
+    """Resolve benchmark target agent factory from request name."""
+
     available = {spec.name for spec in list_agent_specs()}
     if agent_name == "active_model":
         model = _repo().get_active_model()
@@ -27,6 +33,8 @@ def _resolve_agent_factory(agent_name: str):
 
 @benchmarks_bp.post("/run")
 def run_benchmark():
+    """Run benchmark against canonical bots for selected agent."""
+
     payload = request.get_json(silent=True) or {}
     agent_name = str(payload.get("agent", "markov"))
     rounds = int(payload.get("rounds", 1000))

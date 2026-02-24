@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Supervised learning pipeline for player-action prediction models."""
+
+from __future__ import annotations
 
 import pickle
 from dataclasses import asdict, dataclass
@@ -75,6 +75,8 @@ class FrequencyModel:
     """Context-frequency baseline used as a lightweight non-sklearn model."""
 
     def __init__(self, lookback: int) -> None:
+        """Initialize context count tables for baseline predictions."""
+
         self.lookback = lookback
         self.context_counts: dict[tuple[int, ...], np.ndarray] = {}
         self.global_counts = np.ones(3, dtype=float)
@@ -137,6 +139,8 @@ def build_dataset(rounds: list[dict], lookback: int) -> tuple[np.ndarray, np.nda
     current_key: tuple[int, int] | None = None
 
     def consume_group(group: list[dict]) -> None:
+        """Append feature/label rows for one game-session group."""
+
         for idx in range(lookback, len(group)):
             window = group[idx - lookback : idx]
             features: list[float] = []
