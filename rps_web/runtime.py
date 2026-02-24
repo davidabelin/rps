@@ -15,6 +15,7 @@ class GameRuntimeState:
     """Cached per-game runtime state used to avoid full history replay."""
 
     game_id: int
+    agent_name: str
     session_index: int
     signature: str
     agent: Any

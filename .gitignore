@@ -11,3 +11,4 @@ data/models/*.pkl
 data/exports/*.json
 static/*.json
 resources/*.pdf
+scratchpad.txt

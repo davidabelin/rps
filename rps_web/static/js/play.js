@@ -99,6 +99,21 @@
     roundLog.prepend(row);
   }
 
+  function sendLatencyTelemetry(sample) {
+    const payload = JSON.stringify(sample);
+    if (navigator.sendBeacon) {
+      const blob = new Blob([payload], { type: "application/json" });
+      navigator.sendBeacon("/api/v1/telemetry/latency", blob);
+      return;
+    }
+    fetch("/api/v1/telemetry/latency", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: payload,
+      keepalive: true,
+    }).catch(() => null);
+  }
+
   function updateAgentDetails() {
     const selected = String(agentSelect.value || "");
     const descriptor = agentsByName[selected];
@@ -229,8 +244,15 @@
       );
       const elapsedMs = Math.round(window.performance.now() - startedAt);
       const serverMs = Number(body?.round?.server_elapsed_ms);
+      const timings = body?.round?.timings_ms || {};
+      const loadMs = Number(timings.cache_or_load);
+      const agentMs = Number(timings.agent_step);
+      const persistMs = Number(timings.persist);
+      const timingsKnown = Number.isFinite(loadMs) && Number.isFinite(agentMs) && Number.isFinite(persistMs);
       latencyStatus.textContent = Number.isFinite(serverMs)
-        ? `Last round latency: client ${elapsedMs} ms, server ${serverMs} ms`
+        ? `Last round latency: client ${elapsedMs} ms, server ${serverMs} ms${
+            timingsKnown ? ` (load ${loadMs}, agent ${agentMs}, persist ${persistMs})` : ""
+          }`
         : `Last round latency: client ${elapsedMs} ms, server -`;
       if (!response.ok) {
         setStatus(`Round error: ${body.error || "unknown error"}`);
@@ -252,6 +274,17 @@
       }
       updateMomentum(body.round.outcome);
       addLogRow(body.round);
+      if (body.round && Number.isFinite(serverMs)) {
+        sendLatencyTelemetry({
+          game_id: Number(currentGame.game_id),
+          round_id: Number(body.round.id),
+          round_index: Number(body.round.round_index),
+          agent_name: String(currentGame.agent_name || ""),
+          client_elapsed_ms: Number(elapsedMs),
+          server_elapsed_ms: Number(serverMs),
+          timings_ms: body.round.timings_ms || null,
+        });
+      }
     } catch (err) {
       const isTimeout = err && String(err.name || "").toLowerCase() === "aborterror";
       setStatus(`Round error: ${isTimeout ? "request timed out" : String(err)}`);

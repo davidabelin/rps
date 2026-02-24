@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import time
 from pathlib import Path
 
@@ -40,6 +41,8 @@ def test_create_round_and_reset_preserves_round_history(app, client):
     assert first.status_code == 200
     first_round = first.get_json()["round"]
     assert int(first_round["server_elapsed_ms"]) >= 0
+    timings = first_round["timings_ms"]
+    assert set(timings.keys()) == {"cache_or_load", "agent_step", "persist", "event_log"}
     second = client.post(f"/api/v1/games/{game_id}/round", json={"action": "paper"})
     assert second.status_code == 200
 
@@ -196,6 +199,32 @@ def test_training_readiness_endpoint(client):
     assert "sample_count" in readiness
     assert "can_train" in readiness
     assert "sklearn_available" in readiness
+
+
+def test_latency_telemetry_endpoint_writes_event(app, client):
+    response = client.post(
+        "/api/v1/telemetry/latency",
+        json={
+            "game_id": 1,
+            "round_id": 2,
+            "round_index": 1,
+            "agent_name": "markov",
+            "client_elapsed_ms": 432,
+            "server_elapsed_ms": 321,
+            "timings_ms": {"cache_or_load": 5, "agent_step": 8, "persist": 12},
+        },
+    )
+    assert response.status_code == 204
+
+    latency_dir = Path(app.config["EVENTS_DIR"]) / "latency"
+    files = sorted(latency_dir.glob("*.jsonl"))
+    assert files
+    lines = [line for line in files[-1].read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert lines
+    payload = json.loads(lines[-1])
+    assert payload["event_type"] == "round_latency"
+    assert payload["client_elapsed_ms"] == 432
+    assert payload["server_elapsed_ms"] == 321
 
 
 def test_worker_token_falls_back_to_internal_token(tmp_path: Path):

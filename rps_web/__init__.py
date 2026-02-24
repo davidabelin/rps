@@ -51,6 +51,7 @@ def create_app(config: dict | None = None) -> Flask:
         TRAINING_WORKER_SERVICE_ACCOUNT=os.getenv("TRAINING_WORKER_SERVICE_ACCOUNT", ""),
         INTERNAL_WORKER_TOKEN=os.getenv("INTERNAL_WORKER_TOKEN", ""),
         ROUND_EVENT_LOGGING_MODE=os.getenv("ROUND_EVENT_LOGGING_MODE", "auto"),
+        LATENCY_EVENT_LOGGING_MODE=os.getenv("LATENCY_EVENT_LOGGING_MODE", "on"),
     )
     if config:
         app.config.update(config)

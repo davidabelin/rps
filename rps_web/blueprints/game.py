@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from pathlib import Path
 from time import perf_counter
 
 from flask import Blueprint, current_app, jsonify, request
@@ -11,7 +12,7 @@ from rps_agents import ModelBackedAgent, build_heuristic_agent, list_agent_specs
 from rps_core.engine import play_human_round_stateful, replay_observation
 from rps_core.scoring import ACTION_NAMES
 from rps_core.types import normalize_action
-from rps_storage.object_store import is_gcs_uri
+from rps_storage.object_store import is_gcs_uri, join_storage_path
 from rps_training.dataset import append_round_event
 from rps_web.runtime import GameRuntimeState
 
@@ -90,6 +91,21 @@ def _should_write_round_event() -> bool:
     return bool(events_dir) and not is_gcs_uri(events_dir)
 
 
+def _should_write_latency_event() -> bool:
+    """Decide whether latency telemetry should be persisted."""
+
+    mode = str(current_app.config.get("LATENCY_EVENT_LOGGING_MODE", "on")).strip().lower()
+    return mode not in {"off", "disabled", "false", "0", "none"}
+
+
+def _latency_events_dir(events_dir: str) -> str:
+    """Build latency-event destination path from configured ``EVENTS_DIR``."""
+
+    if is_gcs_uri(events_dir):
+        return join_storage_path(events_dir, "latency")
+    return str(Path(events_dir) / "latency")
+
+
 def _load_runtime_state(game: dict) -> GameRuntimeState:
     """Load or build a low-latency runtime state for a game session.
 
@@ -121,6 +137,7 @@ def _load_runtime_state(game: dict) -> GameRuntimeState:
     observation = replay_observation(agent, history)
     state = GameRuntimeState(
         game_id=game_id,
+        agent_name=str(game["agent_name"]),
         session_index=session_index,
         signature=signature,
         agent=agent,
@@ -197,6 +214,7 @@ def play_round(game_id: int):
     """
 
     started = perf_counter()
+    stage_started = started
     payload = request.get_json(silent=True) or {}
     if "action" not in payload:
         return jsonify({"error": "Request body must include 'action'."}), 400
@@ -205,15 +223,19 @@ def play_round(game_id: int):
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 
-    game = _repo().get_game(game_id)
-    if game is None:
-        return jsonify({"error": "Game not found."}), 404
+    runtime_state = _runtime().get(game_id)
+    game = None
+    if runtime_state is None:
+        game = _repo().get_game(game_id)
+        if game is None:
+            return jsonify({"error": "Game not found."}), 404
+        try:
+            runtime_state = _load_runtime_state(game)
+        except RuntimeError as exc:
+            return jsonify({"error": str(exc)}), 400
+    cache_and_load_ms = int(round((perf_counter() - stage_started) * 1000))
 
-    try:
-        runtime_state = _load_runtime_state(game)
-    except RuntimeError as exc:
-        return jsonify({"error": str(exc)}), 400
-
+    stage_started = perf_counter()
     result, next_observation = play_human_round_stateful(
         agent=runtime_state.agent,
         player_action=player_action,
@@ -221,11 +243,13 @@ def play_round(game_id: int):
     )
     runtime_state.observation = next_observation
     _runtime().put(runtime_state)
+    agent_step_ms = int(round((perf_counter() - stage_started) * 1000))
 
+    stage_started = perf_counter()
     try:
         stored_round, updated_game = _repo().record_round_and_update_game(
             game_id=game_id,
-            session_index=int(game["session_index"]),
+            session_index=int(runtime_state.session_index),
             round_index=result.round_index,
             player_action=result.player_action,
             ai_action=result.opponent_action,
@@ -235,15 +259,17 @@ def play_round(game_id: int):
     except KeyError:
         _runtime().forget_game(game_id)
         return jsonify({"error": "Game session changed. Start a new game and try again."}), 409
+    persist_ms = int(round((perf_counter() - stage_started) * 1000))
 
+    stage_started = perf_counter()
     if _should_write_round_event():
         append_round_event(
             {
                 "timestamp": datetime.now(UTC).isoformat(),
                 "game_id": int(game_id),
-                "session_index": int(game["session_index"]),
+                "session_index": int(runtime_state.session_index),
                 "round_index": int(result.round_index),
-                "agent_name": game["agent_name"],
+                "agent_name": runtime_state.agent_name,
                 "player_action": int(result.player_action),
                 "ai_action": int(result.opponent_action),
                 "player_action_name": ACTION_NAMES[int(result.player_action)],
@@ -253,6 +279,7 @@ def play_round(game_id: int):
             },
             events_dir=current_app.config["EVENTS_DIR"],
         )
+    event_log_ms = int(round((perf_counter() - stage_started) * 1000))
 
     return jsonify(
         {
@@ -267,6 +294,12 @@ def play_round(game_id: int):
                 "outcome": result.outcome,
                 "reward_delta": int(result.reward_delta),
                 "server_elapsed_ms": int(round((perf_counter() - started) * 1000)),
+                "timings_ms": {
+                    "cache_or_load": cache_and_load_ms,
+                    "agent_step": agent_step_ms,
+                    "persist": persist_ms,
+                    "event_log": event_log_ms,
+                },
             },
         }
     )
@@ -281,3 +314,40 @@ def reset_game(game_id: int):
         return jsonify({"error": "Game not found."}), 404
     _runtime().forget_game(game_id)
     return jsonify({"game": _serialize_game(updated_game)})
+
+
+@game_bp.post("/telemetry/latency")
+def record_latency_telemetry():
+    """Persist one client-side latency sample as JSONL telemetry."""
+
+    payload = request.get_json(silent=True) or {}
+    try:
+        game_id = int(payload["game_id"])
+        round_id = int(payload["round_id"])
+        round_index = int(payload["round_index"])
+        client_elapsed_ms = int(payload["client_elapsed_ms"])
+    except (KeyError, TypeError, ValueError):
+        return jsonify({"error": "Payload must include game_id, round_id, round_index, client_elapsed_ms."}), 400
+    server_elapsed_ms = payload.get("server_elapsed_ms")
+    timings_ms = payload.get("timings_ms")
+    agent_name = str(payload.get("agent_name", ""))
+    if not _should_write_latency_event():
+        return ("", 204)
+    events_dir = str(current_app.config.get("EVENTS_DIR", "")).strip()
+    if not events_dir:
+        return ("", 204)
+    event = {
+        "timestamp": datetime.now(UTC).isoformat(),
+        "event_type": "round_latency",
+        "game_id": game_id,
+        "round_id": round_id,
+        "round_index": round_index,
+        "agent_name": agent_name,
+        "client_elapsed_ms": client_elapsed_ms,
+        "server_elapsed_ms": int(server_elapsed_ms) if isinstance(server_elapsed_ms, (int, float)) else None,
+        "timings_ms": timings_ms if isinstance(timings_ms, dict) else None,
+        "user_agent": request.headers.get("User-Agent", ""),
+        "source": "web_play",
+    }
+    append_round_event(event, events_dir=_latency_events_dir(events_dir))
+    return ("", 204)

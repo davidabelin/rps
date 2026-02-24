@@ -19,5 +19,6 @@ env_variables:
   TRAINING_WORKER_TOKEN: N43GdTyvV9UYubWrNtav_1i7Jtg77x0Ym4Mus7AzCfTaQKZl10ZFemFM1joCufCH
   INTERNAL_WORKER_TOKEN: N43GdTyvV9UYubWrNtav_1i7Jtg77x0Ym4Mus7AzCfTaQKZl10ZFemFM1joCufCH
   ROUND_EVENT_LOGGING_MODE: auto
+  LATENCY_EVENT_LOGGING_MODE: on
 
 service_account: circa-orbit-sa@directed-sonar-429119-u2.iam.gserviceaccount.com
