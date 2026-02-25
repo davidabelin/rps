@@ -354,12 +354,36 @@ input[type="number"] {
   font-weight: 600;
 }
 
+.latency-panel {
+  margin-top: 0.7rem;
+}
+
+.latency-panel .status {
+  margin: 0.5rem 0 0.2rem;
+}
+
+.compact-controls {
+  gap: 0.4rem;
+}
+
 .toggle-inline {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
   color: var(--muted);
   font-size: 0.9rem;
+}
+
+.compact-toggle {
+  font-size: 0.82rem;
+  padding: 0.12rem 0.2rem;
+}
+
+.compact-toggle input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  min-height: 14px;
+  margin: 0;
 }
 
 .meter {

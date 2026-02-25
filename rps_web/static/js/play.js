@@ -27,6 +27,14 @@
   let activeModelSummary = "none";
   let latencyTelemetryEnabled = false;
   let latencyDebugEnabled = false;
+  const hiddenAgents = new Set(["rock", "paper", "scissors", "copy_opponent"]);
+  const agentDisplayNames = {
+    statistical: "frequency",
+  };
+
+  function displayAgentName(name) {
+    return agentDisplayNames[name] || name;
+  }
 
   function loadLatencyPreferences() {
     const telemetryRaw = window.localStorage.getItem("rps.latency.telemetry");
@@ -145,11 +153,12 @@
       agentDetails.textContent = "Choose an agent to view strategy details.";
       return;
     }
+    const shownName = displayAgentName(selected);
     if (selected === "active_model") {
       agentDetails.textContent = `${descriptor.description} Active model: ${activeModelSummary}.`;
       return;
     }
-    agentDetails.textContent = `${descriptor.description}`;
+    agentDetails.textContent = `${shownName}: ${descriptor.description}`;
   }
 
   async function fetchJsonWithTimeout(url, options, timeoutMs) {
@@ -190,10 +199,13 @@
     agentsByName = {};
     agentSelect.innerHTML = "";
     body.agents.forEach((agent) => {
+      if (hiddenAgents.has(agent.name)) {
+        return;
+      }
       agentsByName[agent.name] = agent;
       const option = document.createElement("option");
       option.value = agent.name;
-      option.textContent = `${agent.name}`;
+      option.textContent = `${displayAgentName(agent.name)}`;
       agentSelect.appendChild(option);
     });
     await fetchActiveModelSummary();

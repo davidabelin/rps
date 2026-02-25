@@ -12,11 +12,14 @@
     </div>
     <p id="agentDetails" class="status">Choose an agent to view strategy details.</p>
     <p id="gameStatus" class="status">No active game.</p>
-    <p id="latencyStatus" class="status">Last round latency: -</p>
-    <div class="controls-row">
-      <label class="toggle-inline"><input id="latencyTelemetryToggle" type="checkbox"> Record latency telemetry</label>
-      <label class="toggle-inline"><input id="latencyDebugToggle" type="checkbox"> Show latency debug</label>
-    </div>
+    <details class="inline-details latency-panel">
+      <summary>Latency & Telemetry</summary>
+      <p id="latencyStatus" class="status">Last round latency: -</p>
+      <div class="controls-row compact-controls">
+        <label class="toggle-inline compact-toggle"><input id="latencyTelemetryToggle" type="checkbox"> Record telemetry</label>
+        <label class="toggle-inline compact-toggle"><input id="latencyDebugToggle" type="checkbox"> Show debug</label>
+      </div>
+    </details>
   </div>
 
   <div class="arena panel">
