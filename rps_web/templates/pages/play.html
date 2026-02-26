@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block title %}RPS Agent Lab | Play{% endblock %}
+{% block title %}RPS Agent Lab | Human vs Machine Learning Agent{% endblock %}
 {% block content %}
 <section class="stack">
   <div class="panel">
-    <h1>Human vs AI</h1>
+    <h1>Human vs Machine Learning Agent</h1>
     <p>Create a game, choose your move, and watch the duel reveal.</p>
     <div class="controls-row">
-      <label for="agentSelect">AI Agent</label>
+      <label for="agentSelect">Agent</label>
       <select id="agentSelect"></select>
       <button id="newGameBtn" class="btn btn-primary">New Game</button>
     </div>
@@ -35,13 +35,13 @@
       <div id="clashFx" class="clash-fx"></div>
     </div>
     <div class="fighter">
-      <h2>AI</h2>
+      <h2>Agent</h2>
       <div class="fighter-lane fighter-lane-ai">
         <div id="aiAction" class="action-chip icon-chip idle">-</div>
         <div id="aiHistory" class="history-strip ai"></div>
       </div>
     </div>
-    <div id="choicePlayed" class="choice-played">You: - | AI: -</div>
+    <div id="choicePlayed" class="choice-played">You: - | Agent: -</div>
   </div>
 
   <div class="panel">

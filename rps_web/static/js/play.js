@@ -131,12 +131,12 @@
     if (!choicePlayed) {
       return;
     }
-    choicePlayed.textContent = `You: ${titleCase(playerAction)} | AI: ${titleCase(aiAction)}`;
+    choicePlayed.textContent = `You: ${titleCase(playerAction)} | Agent: ${titleCase(aiAction)}`;
   }
 
   function handPartsForToken(token, skinId) {
     const key = normalizeToken(token);
-    const finger = (x, y, h, w, rot, r) => `
+    const finger = (x, y, h, w = 10, rot = 0, r = 5.6) => `
       <rect
         x="${x}"
         y="${y}"
@@ -150,32 +150,56 @@
         stroke-width="2.2"
       />
     `;
-    const knuckle = (cx, cy, r) => `
+    const knuckle = (cx, cy, r = 5.2) => `
       <circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#${skinId})" stroke="#2a2a2d" stroke-width="2.1"/>
     `;
+    const foldedKnuckles = () =>
+      [knuckle(56, 56, 5.6), knuckle(68, 55.5, 5.5), knuckle(79, 57, 5.2), knuckle(86, 63, 4.6)].join("");
     if (key === "paper") {
       return [
-        finger(33, 16, 46, 12, -2, 6),
-        finger(45, 12, 50, 12, -1, 6),
-        finger(58, 11, 52, 12, 1, 6),
-        finger(71, 15, 47, 12, 4, 6),
+        finger(35, 18, 42, 11, -3, 5.7),
+        finger(46, 13, 48, 11, -1, 5.8),
+        finger(58, 12, 50, 11, 1, 5.8),
+        finger(70, 17, 44, 11, 4, 5.7),
+        `<path d="M80 49 Q88 56 84 66 Q76 67 73 60 Z" fill="url(#${skinId})" stroke="#2a2a2d" stroke-width="2"/>`,
       ].join("");
     }
     if (key === "scissors") {
       return [
-        finger(45, 11, 51, 12, -5, 6),
-        finger(59, 10, 51, 12, 8, 6),
-        knuckle(73, 49, 6),
-        knuckle(83, 54, 5),
+        finger(39, 13, 47, 11, -18, 5.8),
+        finger(66, 13, 47, 11, 18, 5.8),
+        knuckle(60, 56, 5.2),
+        knuckle(72, 56, 5.2),
+        `<path d="M57 58 L63 64 L69 58" fill="none" stroke="#2a2a2d" stroke-width="2" stroke-linecap="round"/>`,
+        `<path d="M78 63 Q85 64 87 69 Q82 72 76 69 Z" fill="url(#${skinId})" stroke="#2a2a2d" stroke-width="2"/>`,
       ].join("");
     }
     if (key === "one") {
-      return [finger(52, 10, 54, 12, 0, 6), knuckle(43, 47, 6), knuckle(61, 47, 6), knuckle(74, 49, 5.2)].join("");
+      return [
+        finger(44, 10, 56, 11, -3, 5.8),
+        knuckle(58, 56, 5.6),
+        knuckle(70, 55.5, 5.4),
+        knuckle(81, 57, 5.1),
+        `<path d="M78 63 Q86 64 87 70 Q82 74 75 70 Z" fill="url(#${skinId})" stroke="#2a2a2d" stroke-width="2"/>`,
+      ].join("");
     }
     if (key === "two") {
-      return [finger(45, 10, 52, 12, -2, 6), finger(58, 10, 52, 12, 2, 6), knuckle(75, 49, 5.7), knuckle(84, 54, 4.9)].join("");
+      return [
+        finger(43, 12, 52, 10, -2, 5.8),
+        finger(55, 11, 53, 10, 1, 5.8),
+        knuckle(70, 56, 5.3),
+        knuckle(81, 58, 5.1),
+        `<path d="M77 63 Q85 65 86 70 Q82 73 76 70 Z" fill="url(#${skinId})" stroke="#2a2a2d" stroke-width="2"/>`,
+      ].join("");
     }
-    return [knuckle(40, 42, 6.2), knuckle(52, 40, 6), knuckle(64, 40, 6), knuckle(76, 42, 6.2), knuckle(84, 50, 5)].join("");
+    return [
+      `<rect x="41" y="45" width="12" height="17" rx="6" ry="6" fill="url(#${skinId})" stroke="#2a2a2d" stroke-width="2"/>`,
+      `<rect x="53" y="43" width="12" height="18" rx="6" ry="6" fill="url(#${skinId})" stroke="#2a2a2d" stroke-width="2"/>`,
+      `<rect x="65" y="43" width="12" height="18" rx="6" ry="6" fill="url(#${skinId})" stroke="#2a2a2d" stroke-width="2"/>`,
+      `<rect x="77" y="45" width="10" height="16" rx="5" ry="5" fill="url(#${skinId})" stroke="#2a2a2d" stroke-width="2"/>`,
+      foldedKnuckles(),
+      `<path d="M84 62 Q89 65 89 71 Q83 73 79 69 Z" fill="url(#${skinId})" stroke="#2a2a2d" stroke-width="2"/>`,
+    ].join("");
   }
 
   function buildHandSvg(token, options) {
@@ -184,25 +208,43 @@
     handSvgSerial += 1;
     const skinId = `skinFill${handSvgSerial}`;
     const cuffId = `cuffFill${handSvgSerial}`;
+    const badgeOuterId = `badgeOuter${handSvgSerial}`;
+    const badgeInnerId = `badgeInner${handSvgSerial}`;
     const parts = handPartsForToken(token, skinId);
     return `
       <svg viewBox="0 0 120 120" class="gesture-svg" role="img" aria-label="${normalizeToken(token)} hand sign">
         <defs>
           <linearGradient id="${skinId}" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stop-color="#ffecc0"/>
-            <stop offset="100%" stop-color="#ffd796"/>
+            <stop offset="0%" stop-color="#fff0c8"/>
+            <stop offset="100%" stop-color="#f8cf88"/>
           </linearGradient>
           <linearGradient id="${cuffId}" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stop-color="#4d80e0"/>
-            <stop offset="100%" stop-color="#2f59ac"/>
+            <stop offset="0%" stop-color="#4f84df"/>
+            <stop offset="100%" stop-color="#274f9f"/>
+          </linearGradient>
+          <radialGradient id="${badgeInnerId}" cx="32%" cy="24%" r="78%">
+            <stop offset="0%" stop-color="#ffe98b"/>
+            <stop offset="50%" stop-color="#f2d248"/>
+            <stop offset="100%" stop-color="#cc9f1b"/>
+          </radialGradient>
+          <linearGradient id="${badgeOuterId}" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#6e7ba0"/>
+            <stop offset="50%" stop-color="#2d3752"/>
+            <stop offset="100%" stop-color="#12192f"/>
           </linearGradient>
         </defs>
+        <g>
+          <circle cx="60" cy="60" r="54" fill="url(#${badgeOuterId})" stroke="#f0e7cb" stroke-width="2"/>
+          <circle cx="60" cy="60" r="47" fill="url(#${badgeInnerId})" stroke="#f7edcf" stroke-width="1.8"/>
+          <ellipse cx="49" cy="36" rx="20" ry="10" fill="rgba(255,255,255,0.28)"/>
+          <ellipse cx="74" cy="84" rx="17" ry="8" fill="rgba(0,0,0,0.09)"/>
+        </g>
         <g${mirrorTransform}>
-          <rect x="21" y="78" width="78" height="30" rx="8" ry="8" fill="url(#${cuffId})" stroke="#1f2b5f" stroke-width="2.2"/>
-          <rect x="23" y="73" width="74" height="10" rx="6" ry="6" fill="#f8d447" stroke="#9a7d12" stroke-width="1.6"/>
-          <rect x="33" y="44" width="54" height="47" rx="18" ry="18" fill="url(#${skinId})" stroke="#2a2a2d" stroke-width="2.5"/>
-          <rect x="20" y="58" width="20" height="28" rx="10" ry="10" transform="rotate(-26 20 58)" fill="url(#${skinId})" stroke="#2a2a2d" stroke-width="2.4"/>
-          <path d="M31 67 Q55 58 84 64" fill="none" stroke="rgba(42,42,45,0.22)" stroke-width="2"/>
+          <rect x="24" y="83" width="72" height="21" rx="8" ry="8" fill="url(#${cuffId})" stroke="#1f2b5f" stroke-width="2.1"/>
+          <rect x="26" y="78" width="68" height="9" rx="5" ry="5" fill="#f4d24a" stroke="#997512" stroke-width="1.4"/>
+          <path d="M36 84 C35 63 45 46 61 45 C77 44 88 55 87 76 L87 88 L36 88 Z" fill="url(#${skinId})" stroke="#2a2a2d" stroke-width="2.4"/>
+          <path d="M30 63 C25 66 23 71 24 77 C25 82 29 86 34 86 C39 86 41 81 40 76 C39 71 37 67 34 63 Z" fill="url(#${skinId})" stroke="#2a2a2d" stroke-width="2.2"/>
+          <path d="M42 70 Q60 63 83 68" fill="none" stroke="rgba(42,42,45,0.2)" stroke-width="1.7"/>
           ${parts}
         </g>
       </svg>
@@ -377,12 +419,12 @@
       momentumStatus.textContent = `Momentum: you are on a ${currentStreakCount}-round streak.`;
       return;
     }
-    momentumStatus.textContent = `Momentum: AI is on a ${currentStreakCount}-round streak.`;
+    momentumStatus.textContent = `Momentum: Agent is on a ${currentStreakCount}-round streak.`;
   }
 
   function addLogRow(round) {
     const row = document.createElement("li");
-    row.textContent = `#${round.round_index + 1}: you ${round.player_action_name}, ai ${round.ai_action_name}, outcome ${round.outcome}`;
+    row.textContent = `#${round.round_index + 1}: you ${round.player_action_name}, agent ${round.ai_action_name}, outcome ${round.outcome}`;
     roundLog.prepend(row);
   }
 
@@ -523,7 +565,7 @@
       return;
     }
     setRoundInteractionEnabled(false);
-    setOutcome("AI thinking...", null);
+    setOutcome("Agent thinking...", null);
     outcomeBanner.classList.add("pending");
     const stopCountdown = startCountdown();
     playerActionEl.classList.add("pending");
@@ -590,7 +632,7 @@
         setOutcome("You win this round.", "win");
         triggerWinnerFlash(playerActionEl);
       } else if (body.round.outcome === "ai") {
-        setOutcome("AI wins this round.", "loss");
+        setOutcome("Agent wins this round.", "loss");
         triggerWinnerFlash(aiActionEl);
       } else {
         setOutcome("Tie round.", "tie");
