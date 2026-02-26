@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+*.xcf
 .pytest_cache/
 .mypy_cache/
 data/rps.db
