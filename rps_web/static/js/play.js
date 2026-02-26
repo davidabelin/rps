@@ -9,8 +9,11 @@
   const latencyTelemetryToggle = document.getElementById("latencyTelemetryToggle");
   const latencyDebugToggle = document.getElementById("latencyDebugToggle");
   const momentumStatus = document.getElementById("momentumStatus");
+  const clashFx = document.getElementById("clashFx");
   const playerActionEl = document.getElementById("playerAction");
   const aiActionEl = document.getElementById("aiAction");
+  const playerHistoryEl = document.getElementById("playerHistory");
+  const aiHistoryEl = document.getElementById("aiHistory");
   const outcomeBanner = document.getElementById("outcomeBanner");
   const winsEl = document.getElementById("wins");
   const lossesEl = document.getElementById("losses");
@@ -27,10 +30,15 @@
   let activeModelSummary = "none";
   let latencyTelemetryEnabled = false;
   let latencyDebugEnabled = false;
+  let playerHistoryTokens = [];
+  let aiHistoryTokens = [];
+  let currentPlayerToken = null;
+  let currentAiToken = null;
   const hiddenAgents = new Set(["rock", "paper", "scissors", "copy_opponent"]);
   const agentDisplayNames = {
     statistical: "frequency",
   };
+  const historyOpacities = [1.0, 1.0, 1.0, 1.0, 0.75, 0.5, 0.25, 0.125];
 
   function displayAgentName(name) {
     return agentDisplayNames[name] || name;
@@ -57,6 +65,143 @@
     gameStatus.textContent = message;
   }
 
+  function normalizeToken(value) {
+    return String(value || "").trim().toLowerCase();
+  }
+
+  function handPartsForToken(token) {
+    const key = normalizeToken(token);
+    const finger = (x, y, h) => `<rect x="${x}" y="${y}" width="12" height="${h}" rx="6" ry="6" fill="#ffe4a9" stroke="#2a2a2d" stroke-width="2.2"/>`;
+    const knuckle = (cx, cy, r = 5.8) => `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#ffe4a9" stroke="#2a2a2d" stroke-width="2.1"/>`;
+    if (key === "paper") {
+      return [finger(34, 12, 45), finger(46, 10, 48), finger(58, 10, 48), finger(70, 13, 44)].join("");
+    }
+    if (key === "scissors") {
+      return [
+        finger(44, 10, 50),
+        `<rect x="57" y="9" width="12" height="49" rx="6" ry="6" transform="rotate(8 63 34)" fill="#ffe4a9" stroke="#2a2a2d" stroke-width="2.2"/>`,
+        knuckle(74, 46, 6),
+        knuckle(83, 52, 5),
+      ].join("");
+    }
+    if (key === "one") {
+      return [finger(52, 10, 50), knuckle(42, 46, 6), knuckle(60, 46, 6), knuckle(73, 48, 5)].join("");
+    }
+    if (key === "two") {
+      return [finger(45, 10, 49), finger(58, 10, 49), knuckle(74, 47, 5.7), knuckle(83, 52, 4.8)].join("");
+    }
+    if (key === "three") {
+      return [finger(38, 11, 47), finger(51, 10, 49), finger(64, 12, 46), knuckle(80, 49, 4.8)].join("");
+    }
+    return [knuckle(40, 42), knuckle(52, 40), knuckle(64, 40), knuckle(76, 42), knuckle(84, 49, 4.8)].join("");
+  }
+
+  function buildHandSvg(token, options) {
+    const opts = options || {};
+    const mirrorTransform = opts.mirror ? ' transform="translate(120 0) scale(-1 1)"' : "";
+    const parts = handPartsForToken(token);
+    return `
+      <svg viewBox="0 0 120 120" class="gesture-svg" role="img" aria-label="${normalizeToken(token)} hand sign">
+        <g${mirrorTransform}>
+          <rect x="21" y="78" width="78" height="30" rx="8" ry="8" fill="#3f6fd1" stroke="#1f2b5f" stroke-width="2.2"/>
+          <rect x="23" y="73" width="74" height="10" rx="6" ry="6" fill="#f8d447" stroke="#9a7d12" stroke-width="1.6"/>
+          <rect x="33" y="44" width="54" height="47" rx="18" ry="18" fill="#ffe4a9" stroke="#2a2a2d" stroke-width="2.5"/>
+          <rect x="20" y="58" width="20" height="28" rx="10" ry="10" transform="rotate(-26 20 58)" fill="#ffe4a9" stroke="#2a2a2d" stroke-width="2.4"/>
+          ${parts}
+        </g>
+      </svg>
+    `;
+  }
+
+  function resetActionChip(element) {
+    element.innerHTML = '<span class="idle-mark">-</span>';
+    element.classList.add("idle");
+    element.classList.remove("pending");
+    element.classList.remove("reveal");
+    element.classList.remove("winner-flash");
+  }
+
+  function setActionChipIcon(element, token, mirror) {
+    element.innerHTML = buildHandSvg(token, { mirror });
+    element.classList.remove("idle");
+  }
+
+  function renderHistoryLane(target, tokens, mirror) {
+    target.innerHTML = "";
+    tokens.slice(0, 8).forEach((token, index) => {
+      const icon = document.createElement("div");
+      icon.className = "history-icon";
+      if (index === 0) {
+        icon.classList.add("latest");
+      }
+      icon.style.opacity = String(historyOpacities[index] !== undefined ? historyOpacities[index] : 0.1);
+      const arcDrop = index <= 3 ? 0 : (index - 3) * 3;
+      icon.style.transform = `translateY(${arcDrop}px)`;
+      icon.innerHTML = buildHandSvg(token, { mirror });
+      target.appendChild(icon);
+    });
+  }
+
+  function renderHistories() {
+    renderHistoryLane(playerHistoryEl, playerHistoryTokens, false);
+    renderHistoryLane(aiHistoryEl, aiHistoryTokens, true);
+  }
+
+  function archiveCurrentCenter() {
+    if (!currentPlayerToken || !currentAiToken) {
+      return;
+    }
+    playerHistoryTokens.unshift(currentPlayerToken);
+    aiHistoryTokens.unshift(currentAiToken);
+    playerHistoryTokens = playerHistoryTokens.slice(0, 8);
+    aiHistoryTokens = aiHistoryTokens.slice(0, 8);
+    renderHistories();
+  }
+
+  function triggerClash() {
+    if (!clashFx) {
+      return;
+    }
+    clashFx.classList.remove("active");
+    void clashFx.offsetWidth;
+    clashFx.classList.add("active");
+  }
+
+  function triggerWinnerFlash(element) {
+    element.classList.remove("winner-flash");
+    void element.offsetWidth;
+    element.classList.add("winner-flash");
+    window.setTimeout(() => {
+      element.classList.remove("winner-flash");
+    }, 520);
+  }
+
+  function startCountdown() {
+    const sequence = ["one", "two", "three"];
+    let index = 0;
+    let active = true;
+    let timerId = null;
+    const tick = () => {
+      if (!active) {
+        return;
+      }
+      const token = sequence[Math.min(index, sequence.length - 1)];
+      setActionChipIcon(playerActionEl, token, false);
+      setActionChipIcon(aiActionEl, token, true);
+      index += 1;
+      if (index < sequence.length) {
+        timerId = window.setTimeout(tick, 170);
+      }
+    };
+    tick();
+    return () => {
+      active = false;
+      if (timerId) {
+        window.clearTimeout(timerId);
+      }
+    };
+  }
+
   function setOutcome(text, kind) {
     outcomeBanner.textContent = text;
     outcomeBanner.classList.remove("win", "loss", "tie", "pending");
@@ -74,8 +219,9 @@
   }
 
   function animateAction(element, value) {
-    element.textContent = value.toUpperCase();
-    element.classList.remove("idle");
+    const token = normalizeToken(value);
+    const mirror = element === aiActionEl;
+    setActionChipIcon(element, token, mirror);
     element.classList.remove("pending");
     element.classList.remove("reveal");
     window.requestAnimationFrame(() => {
@@ -234,14 +380,15 @@
       currentGame = body.game;
       currentStreakSign = 0;
       currentStreakCount = 0;
+      currentPlayerToken = null;
+      currentAiToken = null;
+      playerHistoryTokens = [];
+      aiHistoryTokens = [];
+      renderHistories();
       updateScore(currentGame);
       roundLog.innerHTML = "";
-      playerActionEl.textContent = "-";
-      aiActionEl.textContent = "-";
-      playerActionEl.classList.add("idle");
-      aiActionEl.classList.add("idle");
-      playerActionEl.classList.remove("pending");
-      aiActionEl.classList.remove("pending");
+      resetActionChip(playerActionEl);
+      resetActionChip(aiActionEl);
       setOutcome("Game ready. Make your move.", null);
       momentumStatus.textContent = "Momentum: neutral.";
       setStatus(`Game ${currentGame.game_id} using ${currentGame.agent_name}`);
@@ -263,9 +410,8 @@
     setRoundInteractionEnabled(false);
     setOutcome("AI thinking...", null);
     outcomeBanner.classList.add("pending");
-    animateAction(playerActionEl, action);
-    aiActionEl.textContent = "...";
-    aiActionEl.classList.remove("idle");
+    const stopCountdown = startCountdown();
+    playerActionEl.classList.add("pending");
     aiActionEl.classList.add("pending");
     const startedAt = window.performance.now();
     try {
@@ -293,20 +439,28 @@
         latencyStatus.textContent = `Last round latency: ${elapsedMs} ms`;
       }
       if (!response.ok) {
+        stopCountdown();
         setStatus(`Round error: ${body.error || "unknown error"}`);
         setOutcome("Round failed. Try again.", null);
         playerActionEl.classList.remove("pending");
         aiActionEl.classList.remove("pending");
         return;
       }
+      stopCountdown();
+      archiveCurrentCenter();
       currentGame = body.game;
       updateScore(currentGame);
       animateAction(playerActionEl, body.round.player_action_name);
       animateAction(aiActionEl, body.round.ai_action_name);
+      currentPlayerToken = normalizeToken(body.round.player_action_name);
+      currentAiToken = normalizeToken(body.round.ai_action_name);
+      triggerClash();
       if (body.round.outcome === "player") {
         setOutcome("You win this round.", "win");
+        triggerWinnerFlash(playerActionEl);
       } else if (body.round.outcome === "ai") {
         setOutcome("AI wins this round.", "loss");
+        triggerWinnerFlash(aiActionEl);
       } else {
         setOutcome("Tie round.", "tie");
       }
@@ -324,11 +478,17 @@
         });
       }
     } catch (err) {
+      stopCountdown();
       const isTimeout = err && String(err.name || "").toLowerCase() === "aborterror";
       setStatus(`Round error: ${isTimeout ? "request timed out" : String(err)}`);
       setOutcome("Round failed. Try again.", null);
-      playerActionEl.classList.remove("pending");
-      aiActionEl.classList.remove("pending");
+      if (currentPlayerToken && currentAiToken) {
+        setActionChipIcon(playerActionEl, currentPlayerToken, false);
+        setActionChipIcon(aiActionEl, currentAiToken, true);
+      } else {
+        resetActionChip(playerActionEl);
+        resetActionChip(aiActionEl);
+      }
     } finally {
       setRoundInteractionEnabled(true);
     }

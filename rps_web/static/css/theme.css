@@ -224,6 +224,58 @@ input[type="number"] {
   text-align: center;
 }
 
+.fighter-lane {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  min-height: 132px;
+}
+
+.fighter-lane-player {
+  justify-content: flex-end;
+}
+
+.fighter-lane-ai {
+  justify-content: flex-start;
+}
+
+.history-strip {
+  display: flex;
+  align-items: center;
+  min-height: 72px;
+  max-width: 280px;
+}
+
+.history-strip.player {
+  flex-direction: row-reverse;
+  justify-content: flex-start;
+}
+
+.history-strip.ai {
+  justify-content: flex-start;
+}
+
+.history-icon {
+  width: 58px;
+  height: 58px;
+  border-radius: 12px;
+  border: 1px solid rgba(223, 216, 206, 0.75);
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 4px 12px rgba(22, 18, 12, 0.08);
+  margin-inline-start: -14px;
+  transition: transform 220ms ease, opacity 220ms ease;
+  overflow: hidden;
+}
+
+.history-strip .history-icon:first-child {
+  margin-inline-start: 0;
+}
+
+.history-icon.latest {
+  box-shadow: 0 6px 18px rgba(15, 123, 109, 0.18);
+}
+
 .action-chip {
   margin: 0 auto;
   width: min(200px, 100%);
@@ -243,6 +295,23 @@ input[type="number"] {
   transform: translateY(-3px) scale(1.02);
 }
 
+.icon-chip {
+  width: 132px;
+  max-width: 132px;
+  height: 132px;
+  padding: 0.25rem;
+}
+
+.gesture-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.idle-mark {
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
 .action-chip.idle {
   color: var(--muted);
 }
@@ -256,6 +325,63 @@ input[type="number"] {
   font-weight: 700;
   font-size: 1.2rem;
   color: var(--accent);
+}
+
+.versus-wrap {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 60px;
+}
+
+.clash-fx {
+  position: absolute;
+  width: 74px;
+  height: 74px;
+  border-radius: 999px;
+  border: 3px solid rgba(255, 111, 60, 0.75);
+  box-shadow: 0 0 0 0 rgba(255, 111, 60, 0.45);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.clash-fx.active {
+  animation: clashRing 420ms ease-out 1;
+}
+
+.action-chip.winner-flash {
+  animation: winnerFlash 240ms ease-in-out 2;
+}
+
+@keyframes clashRing {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+    box-shadow: 0 0 0 0 rgba(255, 111, 60, 0.5);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.35);
+    box-shadow: 0 0 0 20px rgba(255, 111, 60, 0);
+  }
+}
+
+@keyframes winnerFlash {
+  0% {
+    transform: translateY(0) scale(1);
+    filter: brightness(1);
+  }
+  40% {
+    transform: translateY(-4px) scale(1.08);
+    filter: brightness(1.2);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    filter: brightness(1);
+  }
 }
 
 .outcome {
@@ -459,6 +585,31 @@ input[type="number"] {
 
   .versus {
     text-align: center;
+  }
+
+  .fighter-lane {
+    justify-content: center;
+  }
+
+  .fighter-lane-player,
+  .fighter-lane-ai {
+    justify-content: center;
+  }
+
+  .history-strip {
+    max-width: 180px;
+  }
+
+  .history-icon {
+    width: 42px;
+    height: 42px;
+    margin-inline-start: -10px;
+  }
+
+  .icon-chip {
+    width: 104px;
+    height: 104px;
+    max-width: 104px;
   }
 
   .train-form {
