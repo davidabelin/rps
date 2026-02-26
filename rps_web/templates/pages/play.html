@@ -22,7 +22,7 @@
     </details>
   </div>
 
-  <div class="arena panel">
+  <div class="arena panel play-arena">
     <div class="fighter">
       <h2>You</h2>
       <div class="fighter-lane fighter-lane-player">
@@ -44,12 +44,7 @@
     <div id="choicePlayed" class="choice-played">You: - | Agent: -</div>
   </div>
 
-  <div class="panel">
-    <div class="controls-row">
-      <button class="btn btn-action" data-action="rock">Rock</button>
-      <button class="btn btn-action" data-action="paper">Paper</button>
-      <button class="btn btn-action" data-action="scissors">Scissors</button>
-    </div>
+  <div class="panel play-action-panel">
     <div id="outcomeBanner" class="outcome">Pick a move to begin.</div>
     <p id="momentumStatus" class="status">Momentum: neutral.</p>
     <div class="score-row">
@@ -57,6 +52,11 @@
       <span>Losses: <strong id="losses">0</strong></span>
       <span>Ties: <strong id="ties">0</strong></span>
       <span>Rounds: <strong id="rounds">0</strong></span>
+    </div>
+    <div class="controls-row play-actions-row">
+      <button class="btn btn-action" data-action="rock">Rock</button>
+      <button class="btn btn-action" data-action="paper">Paper</button>
+      <button class="btn btn-action" data-action="scissors">Scissors</button>
     </div>
   </div>
 

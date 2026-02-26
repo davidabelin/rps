@@ -51,7 +51,7 @@ def _build_specs() -> dict[str, AgentSpec]:
         ),
         "decision_tree": AgentSpec(
             "decision_tree",
-            "Online decision tree heuristic over local/global rollouts.",
+            "Real-time decision tree heuristic during gameplay.",
             DecisionTreeHeuristicAgent,
         ),
         "multi_armed_bandit": AgentSpec(

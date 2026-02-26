@@ -282,13 +282,13 @@
       }
       applyResultClass(icon, payload.result);
       icon.style.opacity = String(historyOpacities[index] !== undefined ? historyOpacities[index] : 0.1);
-      const arcDrop = index < 3 ? 0 : (index - 2) * 3;
-      const arcTilt = index < 3 ? 0 : (lane === "player" ? -1 : 1) * Math.min(5, index - 2);
+      const arcDrop = index < 2 ? 0 : (index - 1) * 3;
+      const arcTilt = index < 2 ? 0 : (lane === "player" ? -1 : 1) * Math.min(5, index - 1);
       icon.style.transform = `translateY(${arcDrop}px) rotate(${arcTilt}deg)`;
       if (lane === "player") {
-        icon.style.marginRight = `${index === 0 ? 0 : index < 3 ? 6 : -16}px`;
+        icon.style.marginRight = `${index === 0 ? 0 : index < 2 ? 6 : -14}px`;
       } else {
-        icon.style.marginLeft = `${index === 0 ? 0 : index < 3 ? 6 : -16}px`;
+        icon.style.marginLeft = `${index === 0 ? 0 : index < 2 ? 6 : -14}px`;
       }
       icon.style.zIndex = String(80 - index);
       icon.innerHTML = buildHandMarkup(payload.token, { mirror });

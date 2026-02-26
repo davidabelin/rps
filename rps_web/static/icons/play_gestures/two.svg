@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <defs>
+    <radialGradient id="badgeInner" cx="32%" cy="24%" r="78%">
+      <stop offset="0%" stop-color="#ffe98b"/>
+      <stop offset="50%" stop-color="#f2d248"/>
+      <stop offset="100%" stop-color="#cc9f1b"/>
+    </radialGradient>
+    <linearGradient id="badgeOuter" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#6e7ba0"/>
+      <stop offset="50%" stop-color="#2d3752"/>
+      <stop offset="100%" stop-color="#12192f"/>
+    </linearGradient>
+    <linearGradient id="skinFill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fff0c8"/>
+      <stop offset="100%" stop-color="#f8cf88"/>
+    </linearGradient>
+    <linearGradient id="cuffFill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#4f84df"/>
+      <stop offset="100%" stop-color="#274f9f"/>
+    </linearGradient>
+  </defs>
+
+  <circle cx="60" cy="60" r="54" fill="url(#badgeOuter)" stroke="#f0e7cb" stroke-width="2"/>
+  <circle cx="60" cy="60" r="47" fill="url(#badgeInner)" stroke="#f7edcf" stroke-width="1.8"/>
+  <ellipse cx="49" cy="36" rx="20" ry="10" fill="rgba(255,255,255,0.28)"/>
+  <ellipse cx="74" cy="84" rx="17" ry="8" fill="rgba(0,0,0,0.09)"/>
+
+  <rect x="24" y="83" width="72" height="21" rx="8" ry="8" fill="url(#cuffFill)" stroke="#1f2b5f" stroke-width="2.1"/>
+  <rect x="26" y="78" width="68" height="9" rx="5" ry="5" fill="#f4d24a" stroke="#997512" stroke-width="1.4"/>
+  <path d="M36 84 C35 63 45 46 61 45 C77 44 88 55 87 76 L87 88 L36 88 Z" fill="url(#skinFill)" stroke="#2a2a2d" stroke-width="2.4"/>
+  <path d="M30 63 C25 66 23 71 24 77 C25 82 29 86 34 86 C39 86 41 81 40 76 C39 71 37 67 34 63 Z" fill="url(#skinFill)" stroke="#2a2a2d" stroke-width="2.2"/>
+  <path d="M42 70 Q60 63 83 68" fill="none" stroke="rgba(42,42,45,0.2)" stroke-width="1.7"/>
+
+  <rect x="43" y="12" width="10" height="52" rx="5.8" ry="5.8" transform="rotate(-2 48 38)" fill="url(#skinFill)" stroke="#2a2a2d" stroke-width="2.2"/>
+  <rect x="55" y="11" width="10" height="53" rx="5.8" ry="5.8" transform="rotate(1 60 37.5)" fill="url(#skinFill)" stroke="#2a2a2d" stroke-width="2.2"/>
+  <circle cx="70" cy="56" r="5.3" fill="url(#skinFill)" stroke="#2a2a2d" stroke-width="2.1"/>
+  <circle cx="81" cy="58" r="5.1" fill="url(#skinFill)" stroke="#2a2a2d" stroke-width="2.1"/>
+  <path d="M77 63 Q85 65 86 70 Q82 73 76 70 Z" fill="url(#skinFill)" stroke="#2a2a2d" stroke-width="2"/>
+</svg>

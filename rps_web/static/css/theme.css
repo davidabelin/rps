@@ -220,6 +220,10 @@ input[type="number"] {
   gap: 1rem;
 }
 
+.play-arena {
+  overflow-x: clip;
+}
+
 .fighter {
   text-align: center;
 }
@@ -431,6 +435,7 @@ input[type="number"] {
   grid-column: 1 / -1;
   margin-top: 0.35rem;
   justify-self: center;
+  max-width: 100%;
   font-size: 0.94rem;
   font-weight: 700;
   color: #2d2a31;
@@ -466,6 +471,21 @@ input[type="number"] {
   display: flex;
   flex-wrap: wrap;
   gap: 1rem;
+}
+
+.play-action-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-height: 200px;
+}
+
+.play-actions-row {
+  margin-top: auto;
+}
+
+.play-actions-row .btn-action {
+  flex: 1 1 0;
 }
 
 .log-list {
@@ -620,6 +640,10 @@ input[type="number"] {
 }
 
 @media (max-width: 700px) {
+  .page {
+    width: min(1000px, 96vw);
+  }
+
   .site-header {
     flex-direction: column;
     align-items: flex-start;
@@ -652,23 +676,41 @@ input[type="number"] {
     justify-content: center;
   }
 
+  .play-arena {
+    overflow-x: hidden;
+    padding-inline: 0.55rem;
+  }
+
   .history-strip {
-    max-width: 210px;
+    max-width: min(44vw, 170px);
   }
 
   .history-icon {
-    width: 48px;
-    height: 58px;
+    width: 44px;
+    height: 54px;
   }
 
   .icon-chip {
-    width: 104px;
-    height: 122px;
-    max-width: 104px;
+    width: 96px;
+    height: 112px;
+    max-width: 96px;
   }
 
   .choice-played {
     font-size: 0.86rem;
+  }
+
+  .play-action-panel {
+    min-height: 46vh;
+  }
+
+  .play-action-panel .score-row {
+    gap: 0.55rem;
+    justify-content: space-between;
+  }
+
+  .play-action-panel .score-row span {
+    flex: 1 1 calc(50% - 0.55rem);
   }
 
   .train-form {
