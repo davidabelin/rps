@@ -6,11 +6,8 @@ __pycache__/
 *.xcf
 .pytest_cache/
 .mypy_cache/
-data/rps.db
-data/*.db
-data/models/*.pkl
-data/exports/*.json
-data/latency_exports/latency/20260224/*.json
+# Ignore all local/generated datasets, exports, logs, and telemetry captures.
+data/
 static/*.json
 resources/*.pdf
 repo.bat

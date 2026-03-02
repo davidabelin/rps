@@ -22,6 +22,6 @@ env_variables:
   INTERNAL_WORKER_TOKEN: ""
   INTERNAL_WORKER_TOKEN_SECRET: projects/directed-sonar-429119-u2/secrets/rps-worker-token/versions/latest
   ROUND_EVENT_LOGGING_MODE: auto
-  LATENCY_EVENT_LOGGING_MODE: on
+  LATENCY_EVENT_LOGGING_MODE: off
 
 service_account: circa-orbit-sa@directed-sonar-429119-u2.iam.gserviceaccount.com
