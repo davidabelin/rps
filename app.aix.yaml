@@ -1,0 +1,24 @@
+runtime: python313
+service: rps
+entrypoint: gunicorn -b :$PORT run:app
+
+env_variables:
+  DATABASE_URL: ""
+  DATABASE_URL_SECRET: ""
+  DB_PATH: /tmp/rps.db
+  EVENTS_DIR: gs://aix-labs-data/rps/events
+  MODELS_DIR: gs://aix-labs-data/rps/models
+  EXPORTS_DIR: gs://aix-labs-data/rps/exports
+  TRAINING_EXECUTION_MODE: task_queue
+  TASKS_PROJECT_ID: aix-labs
+  TASKS_LOCATION: us-west1
+  TASKS_QUEUE: rps-training
+  TRAINING_WORKER_URL: https://rps-dot-aix-labs.uw.r.appspot.com
+  TRAINING_WORKER_TOKEN: ""
+  TRAINING_WORKER_TOKEN_SECRET: projects/aix-labs/secrets/rps-worker-token/versions/latest
+  INTERNAL_WORKER_TOKEN: ""
+  INTERNAL_WORKER_TOKEN_SECRET: projects/aix-labs/secrets/rps-worker-token/versions/latest
+  ROUND_EVENT_LOGGING_MODE: auto
+  LATENCY_EVENT_LOGGING_MODE: off
+
+service_account: aix-admin@aix-labs.iam.gserviceaccount.com

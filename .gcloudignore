@@ -22,6 +22,10 @@ __pycache__/
 .venv/
 .pytest_cache/
 data/
+.vscode/
+tests/
+docs/
+resources/
 
 # Never upload local secrets/keys
 static/*.json
