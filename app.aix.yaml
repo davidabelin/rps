@@ -1,8 +1,9 @@
 runtime: python313
 service: rps
-entrypoint: gunicorn -b :$PORT run:app
+entrypoint: gunicorn --worker-tmp-dir /tmp -b :$PORT run:app
 
 env_variables:
+  APP_BASE_PATH: /rps
   DATABASE_URL: ""
   DATABASE_URL_SECRET: ""
   DB_PATH: /tmp/rps.db
