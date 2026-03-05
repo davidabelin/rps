@@ -5,7 +5,7 @@ entrypoint: gunicorn --worker-tmp-dir /tmp -b :$PORT run:app
 env_variables:
   APP_BASE_PATH: /rps
   DATABASE_URL: ""
-  DATABASE_URL_SECRET: ""
+  DATABASE_URL_SECRET: projects/aix-labs/secrets/rps-database-url/versions/latest
   DB_PATH: /tmp/rps.db
   EVENTS_DIR: gs://aix-labs-data/rps/events
   MODELS_DIR: gs://aix-labs-data/rps/models
