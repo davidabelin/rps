@@ -1,5 +1,7 @@
 (function () {
   "use strict";
+  const appBasePath = String(window.__APP_BASE_PATH__ || "").replace(/\/+$/, "");
+  const apiBase = `${appBasePath}/api/v1`;
 
   const agentSelect = document.getElementById("agentSelect");
   const agentDetails = document.getElementById("agentDetails");
@@ -435,10 +437,10 @@
     const payload = JSON.stringify(sample);
     if (navigator.sendBeacon) {
       const blob = new Blob([payload], { type: "application/json" });
-      navigator.sendBeacon("/api/v1/telemetry/latency", blob);
+      navigator.sendBeacon(`${apiBase}/telemetry/latency`, blob);
       return;
     }
-    fetch("/api/v1/telemetry/latency", {
+    fetch(`${apiBase}/telemetry/latency`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: payload,
@@ -475,7 +477,7 @@
 
   async function fetchActiveModelSummary() {
     try {
-      const { response, body } = await fetchJsonWithTimeout("/api/v1/models", {}, 5000);
+      const { response, body } = await fetchJsonWithTimeout(`${apiBase}/models`, {}, 5000);
       if (!response.ok || !Array.isArray(body.models)) {
         activeModelSummary = "none";
         return;
@@ -492,7 +494,7 @@
   }
 
   async function fetchAgents() {
-    const { response, body } = await fetchJsonWithTimeout("/api/v1/agents", {}, 5000);
+    const { response, body } = await fetchJsonWithTimeout(`${apiBase}/agents`, {}, 5000);
     if (!response.ok) {
       throw new Error(body.error || "Failed to fetch agents");
     }
@@ -519,7 +521,7 @@
     setRoundInteractionEnabled(false);
     try {
       const { response, body } = await fetchJsonWithTimeout(
-        "/api/v1/games",
+        `${apiBase}/games`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -575,7 +577,7 @@
     const startedAt = window.performance.now();
     try {
       const { response, body } = await fetchJsonWithTimeout(
-        `/api/v1/games/${currentGame.game_id}/round`,
+        `${apiBase}/games/${currentGame.game_id}/round`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

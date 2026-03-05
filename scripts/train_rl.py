@@ -33,8 +33,9 @@ def main() -> int:
     parser.add_argument(
         "--opponents",
         type=str,
-        default="rock,paper,scissors,copy_opponent,reactionary,counter_reactionary,statistical,markov",
+        default="rock,paper,scissors,copy_opponent,reactionary,counter_reactionary,statistical,markov,nash_equilibrium,multi_armed_bandit",
     )
+    parser.add_argument("--opponent-schedule", type=str, default="curriculum", choices=("cycle", "curriculum"))
     args = parser.parse_args()
 
     repository = RPSRepository(args.db_path)
@@ -50,6 +51,7 @@ def main() -> int:
         epsilon_decay=args.epsilon_decay,
         seed=args.seed,
         opponents=opponents,
+        opponent_schedule=args.opponent_schedule,
     )
 
     models_dir = str(args.models_dir)

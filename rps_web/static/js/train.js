@@ -1,5 +1,7 @@
 (function () {
   "use strict";
+  const appBasePath = String(window.__APP_BASE_PATH__ || "").replace(/\/+$/, "");
+  const apiBase = `${appBasePath}/api/v1`;
 
   const trainForm = document.getElementById("trainForm");
   const modelTypeInput = trainForm.querySelector('[name="model_type"]');
@@ -105,7 +107,7 @@
 
   async function fetchReadiness() {
     const lookback = Number(lookbackInput.value || 5);
-    const response = await fetch(`/api/v1/training/readiness?lookback=${encodeURIComponent(lookback)}`);
+    const response = await fetch(`${apiBase}/training/readiness?lookback=${encodeURIComponent(lookback)}`);
     const body = await response.json();
     if (!response.ok) {
       readinessStatus.textContent = `Readiness check failed: ${body.error || "unknown error"}`;
@@ -155,7 +157,7 @@
   }
 
   async function fetchAgentsForBenchmark() {
-    const response = await fetch("/api/v1/agents");
+    const response = await fetch(`${apiBase}/agents`);
     const body = await response.json();
     if (!response.ok) {
       throw new Error(body.error || "Failed to fetch agents");
@@ -188,7 +190,7 @@
       max_elapsed_seconds: 20,
     };
     benchmarkOutput.textContent = "Running benchmark...";
-    const response = await fetch("/api/v1/benchmarks/run", {
+    const response = await fetch(`${apiBase}/benchmarks/run`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -225,7 +227,7 @@
   }
 
   async function fetchBenchmarkSuites() {
-    const response = await fetch("/api/v1/benchmarks/suites");
+    const response = await fetch(`${apiBase}/benchmarks/suites`);
     const body = await response.json();
     if (!response.ok) {
       throw new Error(body.error || "Failed to fetch benchmark suites");
@@ -243,7 +245,7 @@
   }
 
   async function fetchModels() {
-    const response = await fetch("/api/v1/models");
+    const response = await fetch(`${apiBase}/models`);
     const body = await response.json();
     if (!response.ok) {
       throw new Error(body.error || "Failed to fetch models");
@@ -273,7 +275,7 @@
   }
 
   async function activateModel(modelId) {
-    const response = await fetch(`/api/v1/models/${modelId}/activate`, { method: "POST" });
+    const response = await fetch(`${apiBase}/models/${modelId}/activate`, { method: "POST" });
     const body = await response.json();
     if (!response.ok) {
       throw new Error(body.error || "Activation failed");
@@ -286,7 +288,7 @@
     if (!activeJobId) {
       return;
     }
-    const response = await fetch(`/api/v1/training/jobs/${activeJobId}`);
+    const response = await fetch(`${apiBase}/training/jobs/${activeJobId}`);
     const body = await response.json();
     if (!response.ok) {
       setStatus(`Job poll failed: ${body.error || "unknown error"}`);
@@ -321,7 +323,7 @@
     if (eventSource) {
       eventSource.close();
     }
-    eventSource = new EventSource(`/api/v1/training/jobs/${jobId}/events`);
+    eventSource = new EventSource(`${apiBase}/training/jobs/${jobId}/events`);
     eventSource.addEventListener("update", async (event) => {
       const job = JSON.parse(event.data);
       setStatus(`Job ${job.id} status: ${job.status}`);
@@ -363,7 +365,7 @@
   trainForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const payload = toPayload(new FormData(trainForm));
-    const response = await fetch("/api/v1/training/jobs", {
+    const response = await fetch(`${apiBase}/training/jobs`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),

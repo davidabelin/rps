@@ -1,15 +1,15 @@
 :root {
   --ink: #1f1f24;
-  --paper: #fff8ef;
-  --panel: #fffdf9;
-  --accent: #0f7b6d;
-  --accent-2: #ff6f3c;
+  --paper: #fffde8;
+  --panel: #fffef8;
+  --accent: #2f74c7;
+  --accent-2: #e8bb58;
   --muted: #615f67;
-  --line: #dfd8ce;
+  --line: #d9deea;
   --success: #2c8e4f;
   --danger: #c13d2c;
-  --tie: #8a6a1a;
-  --shadow: 0 10px 30px rgba(22, 18, 12, 0.08);
+  --tie: #9e7a1e;
+  --shadow: 0 10px 30px rgba(25, 31, 44, 0.1);
 }
 
 * {
@@ -22,9 +22,9 @@ body {
   font-family: "Space Grotesk", "Segoe UI", sans-serif;
   color: var(--ink);
   background:
-    radial-gradient(circle at 20% 10%, #ffe2be 0%, transparent 40%),
-    radial-gradient(circle at 80% 20%, #d4f2ea 0%, transparent 35%),
-    linear-gradient(160deg, var(--paper), #f6efe6);
+    radial-gradient(circle at 20% 10%, #fff5bf 0%, transparent 40%),
+    radial-gradient(circle at 80% 20%, #dcecff 0%, transparent 35%),
+    linear-gradient(160deg, var(--paper), #eef5ff);
 }
 
 .bg-orb {
@@ -38,7 +38,7 @@ body {
 .bg-orb-a {
   width: 260px;
   height: 260px;
-  background: #ff8d4d;
+  background: #f7ca66;
   top: -80px;
   right: 5vw;
 }
@@ -46,7 +46,7 @@ body {
 .bg-orb-b {
   width: 280px;
   height: 280px;
-  background: #1cb69a;
+  background: #5ea5f0;
   bottom: -120px;
   left: 4vw;
 }
@@ -79,7 +79,7 @@ body {
 }
 
 .site-nav a:hover {
-  background: rgba(15, 123, 109, 0.1);
+  background: rgba(47, 116, 199, 0.12);
 }
 
 .page {
@@ -88,7 +88,7 @@ body {
 }
 
 .hero {
-  background: linear-gradient(135deg, #fffefc, #f4f8f7);
+  background: linear-gradient(135deg, #fffef6, #f3f8ff);
   border: 1px solid var(--line);
   box-shadow: var(--shadow);
   border-radius: 24px;
@@ -171,17 +171,17 @@ h2 {
 
 .btn-primary {
   color: #fff;
-  background: linear-gradient(135deg, var(--accent), #0f9f8d);
+  background: linear-gradient(135deg, var(--accent), #5a9ae2);
 }
 
 .btn-secondary {
   color: var(--ink);
-  background: #f2ebe1;
+  background: #eef3ff;
 }
 
 .btn-action {
   color: #fff;
-  background: linear-gradient(135deg, var(--accent-2), #ff9153);
+  background: linear-gradient(135deg, var(--accent-2), #f0cd73);
 }
 
 .controls-row {
@@ -278,7 +278,7 @@ input[type="number"] {
 }
 
 .history-icon.latest {
-  box-shadow: 0 6px 18px rgba(15, 123, 109, 0.18);
+  box-shadow: 0 6px 18px rgba(47, 116, 199, 0.22);
 }
 
 .action-chip {
@@ -296,7 +296,7 @@ input[type="number"] {
 }
 
 .action-chip.reveal {
-  background: #e8f9f4;
+  background: #eef5ff;
   transform: translateY(-3px) scale(1.02);
 }
 
@@ -386,8 +386,8 @@ input[type="number"] {
   width: 74px;
   height: 74px;
   border-radius: 999px;
-  border: 3px solid rgba(255, 111, 60, 0.75);
-  box-shadow: 0 0 0 0 rgba(255, 111, 60, 0.45);
+  border: 3px solid rgba(232, 187, 88, 0.85);
+  box-shadow: 0 0 0 0 rgba(232, 187, 88, 0.5);
   opacity: 0;
   pointer-events: none;
 }
@@ -404,7 +404,7 @@ input[type="number"] {
   0% {
     opacity: 0;
     transform: scale(0.4);
-    box-shadow: 0 0 0 0 rgba(255, 111, 60, 0.5);
+    box-shadow: 0 0 0 0 rgba(232, 187, 88, 0.5);
   }
   20% {
     opacity: 1;
@@ -412,7 +412,7 @@ input[type="number"] {
   100% {
     opacity: 0;
     transform: scale(1.35);
-    box-shadow: 0 0 0 20px rgba(255, 111, 60, 0);
+    box-shadow: 0 0 0 20px rgba(232, 187, 88, 0);
   }
 }
 
@@ -530,7 +530,7 @@ input[type="number"] {
   height: 1rem;
   border-radius: 999px;
   border: 1px solid var(--line);
-  background: #f5efe6;
+  background: #f4f8ff;
   color: var(--muted);
   font-size: 0.72rem;
   line-height: 1;
@@ -547,7 +547,7 @@ input[type="number"] {
   margin-top: 0.6rem;
   border: 1px dashed var(--line);
   border-radius: 10px;
-  background: #faf7f2;
+  background: #f7fbff;
   padding: 0.5rem 0.7rem;
 }
 
@@ -592,14 +592,14 @@ input[type="number"] {
   margin-top: 0.6rem;
   height: 10px;
   border-radius: 999px;
-  background: #ece5da;
+  background: #e5edf9;
   overflow: hidden;
 }
 
 .meter-fill {
   width: 0;
   height: 100%;
-  background: linear-gradient(90deg, var(--accent), #24b89e);
+  background: linear-gradient(90deg, var(--accent), #7cb2ec);
   transition: width 220ms ease;
 }
 
@@ -607,7 +607,7 @@ input[type="number"] {
   margin-top: 0.8rem;
   border: 1px dashed var(--line);
   border-radius: 12px;
-  background: #faf7f2;
+  background: #f7fbff;
   padding: 0.7rem;
   min-height: 90px;
   overflow: auto;
@@ -656,7 +656,7 @@ input[type="number"] {
   }
 
   .site-nav a {
-    background: rgba(15, 123, 109, 0.08);
+    background: rgba(47, 116, 199, 0.08);
   }
 
   .arena {

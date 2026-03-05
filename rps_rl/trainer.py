@@ -14,6 +14,31 @@ from rps_core.scoring import score_round
 from rps_core.types import RoundObservation, RoundTransition
 from rps_storage.object_store import write_bytes
 
+FOUNDATION_OPPONENTS: tuple[str, ...] = (
+    "rock",
+    "paper",
+    "scissors",
+    "copy_opponent",
+    "reactionary",
+    "counter_reactionary",
+)
+ADAPTIVE_OPPONENTS: tuple[str, ...] = (
+    "copy_opponent",
+    "reactionary",
+    "counter_reactionary",
+    "statistical",
+    "markov",
+    "nash_equilibrium",
+)
+CHALLENGE_OPPONENTS: tuple[str, ...] = (
+    "markov",
+    "opponent_transition_matrix",
+    "decision_tree",
+    "rotating_ensemble",
+    "multi_armed_bandit",
+    "nash_equilibrium",
+)
+
 
 def _state_index(last_opponent_action: int | None) -> int:
     """Map previous opponent action to discrete Q-table state id."""
@@ -44,7 +69,34 @@ class RLTrainConfig:
         "counter_reactionary",
         "statistical",
         "markov",
+        "nash_equilibrium",
+        "multi_armed_bandit",
     )
+    opponent_schedule: str = "curriculum"
+
+
+def _pick_opponent(config: RLTrainConfig, episode: int) -> str:
+    """Select one opponent for an episode under the configured schedule."""
+
+    if not config.opponents:
+        raise ValueError("Opponent pool is empty.")
+
+    if config.opponent_schedule == "cycle":
+        return config.opponents[episode % len(config.opponents)]
+
+    if config.opponent_schedule != "curriculum":
+        raise ValueError(f"Unknown opponent_schedule: {config.opponent_schedule}")
+
+    progress = (episode + 1) / max(1, config.episodes)
+    if progress <= 0.35:
+        phase_pool = tuple(name for name in config.opponents if name in FOUNDATION_OPPONENTS)
+    elif progress <= 0.75:
+        phase_pool = tuple(name for name in config.opponents if name in ADAPTIVE_OPPONENTS)
+    else:
+        phase_pool = tuple(name for name in config.opponents if name in CHALLENGE_OPPONENTS)
+    if not phase_pool:
+        phase_pool = config.opponents
+    return phase_pool[episode % len(phase_pool)]
 
 
 def train_q_policy(config: RLTrainConfig, artifact_path: str) -> dict:
@@ -69,9 +121,11 @@ def train_q_policy(config: RLTrainConfig, artifact_path: str) -> dict:
     epsilon = float(config.epsilon_start)
     episode_rewards: list[float] = []
     episode_win_rates: list[float] = []
+    opponent_usage: dict[str, int] = {}
 
     for episode in range(config.episodes):
-        opponent_name = config.opponents[episode % len(config.opponents)]
+        opponent_name = _pick_opponent(config, episode)
+        opponent_usage[opponent_name] = int(opponent_usage.get(opponent_name, 0)) + 1
         opponent = build_heuristic_agent(opponent_name)
         opponent.reset(seed=rng.randint(0, 2**31 - 1))
         opponent_obs = RoundObservation(step=0, last_opponent_action=None, cumulative_reward=0)
@@ -134,6 +188,8 @@ def train_q_policy(config: RLTrainConfig, artifact_path: str) -> dict:
         "final_50_non_tie_win_rate": float(
             np.mean(episode_win_rates[-50:] if len(episode_win_rates) >= 50 else episode_win_rates)
         ),
+        "opponent_schedule": config.opponent_schedule,
+        "opponent_usage": opponent_usage,
         "q_table": q_table.tolist(),
         "policy": policy.tolist(),
     }

@@ -2,8 +2,12 @@ runtime: python313
 service: rps
 entrypoint: gunicorn --worker-tmp-dir /tmp -b :$PORT run:app
 
+beta_settings:
+  cloud_sql_instances: aix-labs:us-west1:aix-sql
+
 env_variables:
   APP_BASE_PATH: /rps
+  AIX_HUB_URL: https://aix-labs.uw.r.appspot.com/
   DATABASE_URL: ""
   DATABASE_URL_SECRET: projects/aix-labs/secrets/rps-database-url/versions/latest
   DB_PATH: /tmp/rps.db

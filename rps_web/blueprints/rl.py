@@ -74,6 +74,7 @@ def create_rl_job():
     payload.setdefault("epsilon_end", 0.05)
     payload.setdefault("epsilon_decay", 0.995)
     payload.setdefault("seed", 7)
+    payload.setdefault("opponent_schedule", "curriculum")
     payload.setdefault(
         "opponents",
         [
@@ -85,6 +86,8 @@ def create_rl_job():
             "counter_reactionary",
             "statistical",
             "markov",
+            "nash_equilibrium",
+            "multi_armed_bandit",
         ],
     )
     job = _jobs().submit_job(payload)

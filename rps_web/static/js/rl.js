@@ -1,5 +1,7 @@
 (function () {
   "use strict";
+  const appBasePath = String(window.__APP_BASE_PATH__ || "").replace(/\/+$/, "");
+  const apiBase = `${appBasePath}/api/v1`;
 
   const rlForm = document.getElementById("rlForm");
   const rlJobStatus = document.getElementById("rlJobStatus");
@@ -35,7 +37,7 @@
   }
 
   async function fetchRlJobs() {
-    const response = await fetch("/api/v1/rl/jobs");
+    const response = await fetch(`${apiBase}/rl/jobs`);
     const body = await response.json();
     if (!response.ok) {
       throw new Error(body.error || "Failed to load RL jobs");
@@ -70,7 +72,7 @@
     if (!activeRlJobId) {
       return;
     }
-    const response = await fetch(`/api/v1/rl/jobs/${activeRlJobId}`);
+    const response = await fetch(`${apiBase}/rl/jobs/${activeRlJobId}`);
     const body = await response.json();
     if (!response.ok) {
       setStatus(`RL poll failed: ${body.error || "unknown error"}`);
@@ -99,7 +101,7 @@
     if (rlEventSource) {
       rlEventSource.close();
     }
-    rlEventSource = new EventSource(`/api/v1/rl/jobs/${jobId}/events`);
+    rlEventSource = new EventSource(`${apiBase}/rl/jobs/${jobId}/events`);
     rlEventSource.addEventListener("update", async (event) => {
       const job = JSON.parse(event.data);
       renderJob(job);
@@ -135,7 +137,7 @@
   rlForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const payload = payloadFromForm(new FormData(rlForm));
-    const response = await fetch("/api/v1/rl/jobs", {
+    const response = await fetch(`${apiBase}/rl/jobs`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),

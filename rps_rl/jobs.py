@@ -53,6 +53,7 @@ class RLJobManager:
             epsilon_decay=float(payload.get("epsilon_decay", 0.995)),
             seed=int(payload.get("seed", 7)),
             opponents=opponents_tuple,
+            opponent_schedule=str(payload.get("opponent_schedule", "curriculum")).strip() or "curriculum",
         )
 
     def _run_job(self, job_id: int, config: RLTrainConfig) -> None:

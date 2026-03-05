@@ -81,6 +81,7 @@ def create_app(config: dict | None = None) -> Flask:
         INTERNAL_WORKER_TOKEN_SECRET=os.getenv("INTERNAL_WORKER_TOKEN_SECRET", ""),
         ROUND_EVENT_LOGGING_MODE=os.getenv("ROUND_EVENT_LOGGING_MODE", "auto"),
         LATENCY_EVENT_LOGGING_MODE=os.getenv("LATENCY_EVENT_LOGGING_MODE", "on"),
+        AIX_HUB_URL=os.getenv("AIX_HUB_URL", "/"),
     )
     if config:
         app.config.update(config)
@@ -128,4 +129,11 @@ def create_app(config: dict | None = None) -> Flask:
     app.register_blueprint(benchmarks_bp)
     app.register_blueprint(rl_bp)
     app.extensions["rl_jobs"] = RLJobManager(repository, models_dir=app.config["MODELS_DIR"])
+
+    @app.context_processor
+    def inject_template_globals() -> dict:
+        return {
+            "aix_hub_url": str(app.config.get("AIX_HUB_URL", "/")).strip() or "/",
+        }
+
     return app

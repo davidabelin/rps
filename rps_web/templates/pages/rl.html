@@ -29,10 +29,12 @@
     </form>
     <p class="status">Exploration schedule is fixed in this UI: epsilon starts at 1.0, decays by 0.995 each episode, and floors at 0.05.</p>
     <details class="inline-details">
-      <summary>How the rotating heuristic opponent pool works</summary>
+      <summary>How the opponent curriculum works</summary>
       <p class="form-note">
-        Opponent for episode <code>k</code> is chosen by <code>k mod pool_size</code>, cycling through:
-        rock, paper, scissors, copy_opponent, reactionary, counter_reactionary, statistical, markov.
+        Default schedule is <code>curriculum</code>: early episodes focus on basics,
+        middle episodes emphasize adaptive heuristics, and late episodes emphasize tougher opponents.
+        Default pool: rock, paper, scissors, copy_opponent, reactionary, counter_reactionary, statistical, markov,
+        nash_equilibrium, multi_armed_bandit.
       </p>
     </details>
   </div>
