@@ -146,10 +146,26 @@ class RPSRepository:
                 updated_at TEXT NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS arena_matches (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                status TEXT NOT NULL,
+                agent_a_name TEXT NOT NULL,
+                agent_b_name TEXT NOT NULL,
+                params_json TEXT NOT NULL,
+                progress REAL NOT NULL DEFAULT 0.0,
+                winner TEXT,
+                summary_json TEXT,
+                trace_json TEXT,
+                error_message TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
             CREATE INDEX IF NOT EXISTS idx_rounds_game_session ON rounds(game_id, session_index, round_index);
             CREATE INDEX IF NOT EXISTS idx_models_active ON models(is_active);
             CREATE INDEX IF NOT EXISTS idx_training_jobs_status ON training_jobs(status);
             CREATE INDEX IF NOT EXISTS idx_rl_jobs_status ON rl_jobs(status);
+            CREATE INDEX IF NOT EXISTS idx_arena_matches_status ON arena_matches(status);
         """
 
         postgres_schema = """
@@ -221,10 +237,26 @@ class RPSRepository:
                 updated_at TEXT NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS arena_matches (
+                id BIGSERIAL PRIMARY KEY,
+                status TEXT NOT NULL,
+                agent_a_name TEXT NOT NULL,
+                agent_b_name TEXT NOT NULL,
+                params_json TEXT NOT NULL,
+                progress DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+                winner TEXT,
+                summary_json TEXT,
+                trace_json TEXT,
+                error_message TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
             CREATE INDEX IF NOT EXISTS idx_rounds_game_session ON rounds(game_id, session_index, round_index);
             CREATE INDEX IF NOT EXISTS idx_models_active ON models(is_active);
             CREATE INDEX IF NOT EXISTS idx_training_jobs_status ON training_jobs(status);
             CREATE INDEX IF NOT EXISTS idx_rl_jobs_status ON rl_jobs(status);
+            CREATE INDEX IF NOT EXISTS idx_arena_matches_status ON arena_matches(status);
         """
 
         with self._lock:
@@ -845,4 +877,92 @@ class RPSRepository:
 
         with self.engine.begin() as conn:
             rows = conn.execute(text("SELECT * FROM rl_jobs ORDER BY id DESC LIMIT :limit"), {"limit": limit}).mappings().all()
+        return [dict(row) for row in rows]
+
+    def create_arena_match(self, *, agent_a_name: str, agent_b_name: str, params: dict) -> dict:
+        """Create queued arena match record."""
+
+        now = utcnow_iso()
+        return self._insert_and_fetch(
+            """
+            INSERT INTO arena_matches
+            (
+                status, agent_a_name, agent_b_name, params_json, progress, winner,
+                summary_json, trace_json, error_message, created_at, updated_at
+            )
+            VALUES (
+                'queued', :agent_a_name, :agent_b_name, :params_json, 0.0, NULL,
+                NULL, NULL, NULL, :created_at, :updated_at
+            )
+            """,
+            {
+                "agent_a_name": str(agent_a_name),
+                "agent_b_name": str(agent_b_name),
+                "params_json": json.dumps(params, sort_keys=True),
+                "created_at": now,
+                "updated_at": now,
+            },
+            "arena_matches",
+        )
+
+    def update_arena_match(
+        self,
+        match_id: int,
+        *,
+        status: str | None = None,
+        progress: float | None = None,
+        winner: str | None = None,
+        summary: dict | None = None,
+        trace: list[dict] | None = None,
+        error_message: str | None = None,
+    ) -> dict | None:
+        """Patch mutable arena-match fields and return latest row."""
+
+        updates: list[str] = []
+        named: dict[str, Any] = {}
+        if status is not None:
+            updates.append("status = :status")
+            named["status"] = status
+        if progress is not None:
+            updates.append("progress = :progress")
+            named["progress"] = float(progress)
+        if winner is not None:
+            updates.append("winner = :winner")
+            named["winner"] = winner
+        if summary is not None:
+            updates.append("summary_json = :summary_json")
+            named["summary_json"] = json.dumps(summary, sort_keys=True)
+        if trace is not None:
+            updates.append("trace_json = :trace_json")
+            named["trace_json"] = json.dumps(trace, sort_keys=True)
+        if error_message is not None:
+            updates.append("error_message = :error_message")
+            named["error_message"] = error_message
+        updates.append("updated_at = :updated_at")
+        named["updated_at"] = utcnow_iso()
+        named["id"] = int(match_id)
+        with self._lock:
+            with self.engine.begin() as conn:
+                conn.execute(text(f"UPDATE arena_matches SET {', '.join(updates)} WHERE id = :id"), named)
+                row = self._first_or_none(
+                    conn.execute(text("SELECT * FROM arena_matches WHERE id = :id"), {"id": int(match_id)}).mappings()
+                )
+        return row
+
+    def get_arena_match(self, match_id: int) -> dict | None:
+        """Fetch one arena match row by id."""
+
+        with self.engine.begin() as conn:
+            return self._first_or_none(
+                conn.execute(text("SELECT * FROM arena_matches WHERE id = :id"), {"id": int(match_id)}).mappings()
+            )
+
+    def list_arena_matches(self, limit: int = 100) -> list[dict]:
+        """List recent arena matches (descending id)."""
+
+        with self.engine.begin() as conn:
+            rows = conn.execute(
+                text("SELECT * FROM arena_matches ORDER BY id DESC LIMIT :limit"),
+                {"limit": int(limit)},
+            ).mappings().all()
         return [dict(row) for row in rows]

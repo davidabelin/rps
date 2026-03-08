@@ -8,6 +8,7 @@ from pathlib import Path
 from flask import Flask
 
 from rps_storage.repository import RPSRepository
+from rps_web.match_jobs import MatchJobManager
 from rps_training.jobs import TrainingJobManager
 from rps_web.runtime import GameRuntimeCache
 
@@ -81,6 +82,7 @@ def create_app(config: dict | None = None) -> Flask:
         INTERNAL_WORKER_TOKEN_SECRET=os.getenv("INTERNAL_WORKER_TOKEN_SECRET", ""),
         ROUND_EVENT_LOGGING_MODE=os.getenv("ROUND_EVENT_LOGGING_MODE", "auto"),
         LATENCY_EVENT_LOGGING_MODE=os.getenv("LATENCY_EVENT_LOGGING_MODE", "on"),
+        AGENT_MATCH_DEFAULT_ROUNDS=int(os.getenv("AGENT_MATCH_DEFAULT_ROUNDS", "50")),
         AIX_HUB_URL=os.getenv("AIX_HUB_URL", "/"),
     )
     if config:
@@ -115,7 +117,9 @@ def create_app(config: dict | None = None) -> Flask:
     app.extensions["repository"] = repository
     app.extensions["training_jobs"] = training_jobs
     app.extensions["game_runtime"] = GameRuntimeCache(max_entries=512)
+    app.extensions["match_jobs"] = MatchJobManager(repository, default_agent=app.config["DEFAULT_AGENT"])
 
+    from rps_web.blueprints.arena import arena_bp
     from rps_web.blueprints.game import game_bp
     from rps_web.blueprints.main import main_bp
     from rps_web.blueprints.benchmarks import benchmarks_bp
@@ -125,6 +129,7 @@ def create_app(config: dict | None = None) -> Flask:
 
     app.register_blueprint(main_bp)
     app.register_blueprint(game_bp)
+    app.register_blueprint(arena_bp)
     app.register_blueprint(training_bp)
     app.register_blueprint(benchmarks_bp)
     app.register_blueprint(rl_bp)

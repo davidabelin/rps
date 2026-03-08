@@ -1,69 +1,127 @@
 {% extends "base.html" %}
 {% block title %}RPS Agent Lab | Human vs Machine Learning Agent{% endblock %}
 {% block content %}
-<section class="stack">
-  <div class="panel">
-    <h1>Human vs Machine Learning Agent</h1>
-    <p>Create a game, choose your move, and watch the duel reveal.</p>
-    <div class="controls-row">
-      <label for="agentSelect">Agent</label>
-      <select id="agentSelect"></select>
-      <button id="newGameBtn" class="btn btn-primary">New Game</button>
+<section class="stack play-stack">
+  <div class="panel play-hero">
+    <div>
+      <p class="eyebrow">Human vs Agent</p>
+      <h1>Play Rock-Paper-Scissors</h1>
+      <p class="lede">Choose an opponent, start a session, and watch each clash unfold inside the arena.</p>
     </div>
-    <p id="agentDetails" class="status">Choose an agent to view strategy details.</p>
-    <p id="gameStatus" class="status">No active game.</p>
-    <details class="inline-details latency-panel">
-      <summary>Latency & Telemetry</summary>
-      <p id="latencyStatus" class="status">Last round latency: -</p>
-      <div class="controls-row compact-controls">
-        <label class="toggle-inline compact-toggle"><input id="latencyTelemetryToggle" type="checkbox"> Record telemetry</label>
-        <label class="toggle-inline compact-toggle"><input id="latencyDebugToggle" type="checkbox"> Show debug</label>
+    <div class="hero-status">
+      <div class="status-card">
+        <span class="status-kicker">Session</span>
+        <p id="gameStatus" class="status">No active game.</p>
       </div>
-    </details>
-  </div>
-
-  <div class="arena panel play-arena">
-    <div class="fighter">
-      <h2>You</h2>
-      <div class="fighter-lane fighter-lane-player">
-        <div id="playerHistory" class="history-strip player"></div>
-        <div id="playerAction" class="action-chip icon-chip idle">-</div>
+      <div class="status-card">
+        <span class="status-kicker">Momentum</span>
+        <p id="momentumStatus" class="status">Momentum: neutral.</p>
       </div>
-    </div>
-    <div class="versus-wrap">
-      <div class="versus">VS</div>
-      <div id="clashFx" class="clash-fx"></div>
-    </div>
-    <div class="fighter">
-      <h2>Agent</h2>
-      <div class="fighter-lane fighter-lane-ai">
-        <div id="aiAction" class="action-chip icon-chip idle">-</div>
-        <div id="aiHistory" class="history-strip ai"></div>
-      </div>
-    </div>
-    <div id="choicePlayed" class="choice-played">You: - | Agent: -</div>
-  </div>
-
-  <div class="panel play-action-panel">
-    <div id="outcomeBanner" class="outcome">Pick a move to begin.</div>
-    <p id="momentumStatus" class="status">Momentum: neutral.</p>
-    <div class="score-row">
-      <span>Wins: <strong id="wins">0</strong></span>
-      <span>Losses: <strong id="losses">0</strong></span>
-      <span>Ties: <strong id="ties">0</strong></span>
-      <span>Rounds: <strong id="rounds">0</strong></span>
-    </div>
-    <div class="controls-row play-actions-row">
-      <button class="btn btn-action" data-action="rock">Rock</button>
-      <button class="btn btn-action" data-action="paper">Paper</button>
-      <button class="btn btn-action" data-action="scissors">Scissors</button>
     </div>
   </div>
 
-  <div class="panel">
-    <h2>Round Log</h2>
-    <ul id="roundLog" class="log-list"></ul>
-  </div>
+  <section class="play-layout">
+    <div class="panel play-setup-panel">
+      <div class="panel-head">
+        <h2>Match Setup</h2>
+        <p class="panel-note">Select the opponent and optional telemetry.</p>
+      </div>
+      <div class="controls-row">
+        <label for="agentSelect">Agent</label>
+        <select id="agentSelect"></select>
+      </div>
+      <div class="controls-row">
+        <button id="newGameBtn" class="btn btn-primary" type="button">New Game</button>
+      </div>
+      <p id="agentDetails" class="status">Choose an agent to view strategy details.</p>
+      <details class="inline-details latency-panel">
+        <summary>Latency & Telemetry</summary>
+        <p id="latencyStatus" class="status">Last round latency: -</p>
+        <div class="controls-row compact-controls">
+          <label class="toggle-inline compact-toggle"><input id="latencyTelemetryToggle" type="checkbox"> Record telemetry</label>
+          <label class="toggle-inline compact-toggle"><input id="latencyDebugToggle" type="checkbox"> Show debug</label>
+        </div>
+      </details>
+    </div>
+
+    <div class="play-main-column">
+      <div class="panel play-arena-panel">
+        <div class="panel-head compact">
+          <h2>Arena</h2>
+          <p class="panel-note">Animated reveal of the current round.</p>
+        </div>
+        <div class="arena play-arena">
+          <div class="fighter">
+            <h2>You</h2>
+            <div class="fighter-lane fighter-lane-player">
+              <div id="playerHistory" class="history-strip player"></div>
+              <div id="playerAction" class="action-chip icon-chip idle">-</div>
+            </div>
+          </div>
+          <div class="versus-wrap">
+            <div class="versus">VS</div>
+            <div id="clashFx" class="clash-fx"></div>
+          </div>
+          <div class="fighter">
+            <h2>Agent</h2>
+            <div class="fighter-lane fighter-lane-ai">
+              <div id="aiAction" class="action-chip icon-chip idle">-</div>
+              <div id="aiHistory" class="history-strip ai"></div>
+            </div>
+          </div>
+          <div id="choicePlayed" class="choice-played">You: - | Agent: -</div>
+        </div>
+      </div>
+
+      <div class="panel play-action-panel">
+        <div class="panel-head compact">
+          <h2>Throw Controls</h2>
+          <p class="panel-note">Pick a move to resolve the next clash.</p>
+        </div>
+        <div id="outcomeBanner" class="outcome">Pick a move to begin.</div>
+        <div class="controls-row play-actions-row">
+          <button class="btn btn-action" data-action="rock">Rock</button>
+          <button class="btn btn-action" data-action="paper">Paper</button>
+          <button class="btn btn-action" data-action="scissors">Scissors</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="play-sidebar">
+      <div class="panel score-panel">
+        <div class="panel-head compact">
+          <h2>Session Score</h2>
+          <p class="panel-note">Running totals for the current session.</p>
+        </div>
+        <div class="score-grid">
+          <article class="score-card">
+            <span class="score-label">Wins</span>
+            <strong id="wins">0</strong>
+          </article>
+          <article class="score-card">
+            <span class="score-label">Losses</span>
+            <strong id="losses">0</strong>
+          </article>
+          <article class="score-card">
+            <span class="score-label">Ties</span>
+            <strong id="ties">0</strong>
+          </article>
+          <article class="score-card score-card-wide">
+            <span class="score-label">Rounds</span>
+            <strong id="rounds">0</strong>
+          </article>
+        </div>
+      </div>
+
+      <div class="panel log-panel">
+        <div class="panel-head compact">
+          <h2>Round Log</h2>
+          <p class="panel-note">Latest result appears first.</p>
+        </div>
+        <ul id="roundLog" class="log-list"></ul>
+      </div>
+    </div>
+  </section>
 </section>
 
 <script src="{{ url_for('static', filename='js/play.js') }}"></script>

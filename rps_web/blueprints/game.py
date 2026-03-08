@@ -10,6 +10,7 @@ from flask import Blueprint, current_app, jsonify, request
 
 from rps_agents import ModelBackedAgent, build_heuristic_agent, list_agent_specs
 from rps_core.engine import play_human_round_stateful, replay_observation
+from rps_core.matches import play_agent_match
 from rps_core.scoring import ACTION_NAMES
 from rps_core.types import normalize_action
 from rps_storage.object_store import is_gcs_uri, join_storage_path
@@ -44,6 +45,29 @@ def _serialize_game(game: dict) -> dict:
         "score_ties": int(game["score_ties"]),
         "updated_at": game["updated_at"],
     }
+
+
+def _available_agent_names() -> list[str]:
+    return [spec.name for spec in list_agent_specs()]
+
+
+def _default_match_opponent(agent_name: str) -> str:
+    for candidate in _available_agent_names():
+        if candidate != agent_name:
+            return candidate
+    return agent_name
+
+
+def _build_agent_from_name(agent_name: str):
+    if agent_name == "active_model":
+        model_record = _repo().get_active_model()
+        if model_record is None:
+            raise RuntimeError("No active model is available. Activate a trained model first.")
+        return ModelBackedAgent(str(model_record["artifact_path"]))
+    available = set(_available_agent_names())
+    if agent_name not in available:
+        raise KeyError(f"Unknown agent '{agent_name}'.")
+    return build_heuristic_agent(agent_name)
 
 
 def _resolve_agent_factory_and_signature(game: dict):
@@ -178,7 +202,7 @@ def create_game():
 
     payload = request.get_json(silent=True) or {}
     agent_name = str(payload.get("agent", current_app.config["DEFAULT_AGENT"]))
-    available = {spec.name for spec in list_agent_specs()}
+    available = set(_available_agent_names())
     if agent_name != "active_model" and agent_name not in available:
         return jsonify({"error": f"Unknown agent '{agent_name}'."}), 400
     if agent_name == "active_model" and _repo().get_active_model() is None:
@@ -314,6 +338,45 @@ def reset_game(game_id: int):
         return jsonify({"error": "Game not found."}), 404
     _runtime().forget_game(game_id)
     return jsonify({"game": _serialize_game(updated_game)})
+
+
+@game_bp.post("/matches")
+def run_match():
+    """Run one non-persisted agent-vs-agent match and return a replay trace."""
+
+    payload = request.get_json(silent=True) or {}
+    agent_a_name = str(payload.get("agent_a", current_app.config["DEFAULT_AGENT"]))
+    agent_b_name = str(payload.get("agent_b", _default_match_opponent(agent_a_name)))
+    try:
+        rounds = int(payload.get("rounds", current_app.config.get("AGENT_MATCH_DEFAULT_ROUNDS", 50)))
+    except (TypeError, ValueError):
+        return jsonify({"error": "rounds must be an integer."}), 400
+    if rounds <= 0 or rounds > 5000:
+        return jsonify({"error": "rounds must be between 1 and 5000."}), 400
+
+    raw_seed = payload.get("seed")
+    try:
+        seed = int(raw_seed) if raw_seed is not None else None
+    except (TypeError, ValueError):
+        return jsonify({"error": "seed must be an integer when provided."}), 400
+
+    try:
+        agent_a = _build_agent_from_name(agent_a_name)
+        agent_b = _build_agent_from_name(agent_b_name)
+    except KeyError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    match = play_agent_match(
+        agent_a=agent_a,
+        agent_b=agent_b,
+        agent_a_name=agent_a_name,
+        agent_b_name=agent_b_name,
+        rounds=rounds,
+        seed=seed,
+    )
+    return jsonify({"match": match})
 
 
 @game_bp.post("/telemetry/latency")

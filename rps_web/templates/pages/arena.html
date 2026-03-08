@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}RPS Agent Lab | Arena{% endblock %}
+{% block content %}
+<section class="stack">
+  <div class="panel">
+    <h1>Agent Arena</h1>
+    <p>Run persisted agent-vs-agent matches, stream them live, and replay finished traces.</p>
+    <form id="arenaForm" class="train-form arena-form">
+      <label>
+        Agent A
+        <select id="agentASelect" name="agent_a"></select>
+      </label>
+      <label>
+        Agent B
+        <select id="agentBSelect" name="agent_b"></select>
+      </label>
+      <label>
+        Rounds
+        <input id="roundsInput" name="rounds" type="number" min="1" max="5000" value="50">
+      </label>
+      <label>
+        Seed
+        <input id="seedInput" name="seed" type="number" min="0" step="1" value="7">
+      </label>
+      <label>
+        Playback
+        <select id="speedSelect">
+          <option value="900">Slow</option>
+          <option value="550" selected>Normal</option>
+          <option value="250">Fast</option>
+        </select>
+      </label>
+      <div class="controls-row form-actions arena-actions">
+        <button id="startArenaBtn" class="btn btn-primary" type="submit">Start Match</button>
+        <button id="pauseArenaBtn" class="btn btn-secondary" type="button">Pause</button>
+      </div>
+    </form>
+    <p id="arenaStatus" class="status">No arena match active.</p>
+  </div>
+
+  <div class="panel play-arena">
+    <div class="fighter">
+      <h2 id="agentALabel">Agent A</h2>
+      <div class="fighter-lane fighter-lane-player">
+        <div id="agentAHistory" class="history-strip player"></div>
+        <div id="agentAAction" class="action-chip icon-chip idle">-</div>
+      </div>
+    </div>
+    <div class="versus-wrap">
+      <div class="versus">VS</div>
+      <div id="arenaClashFx" class="clash-fx"></div>
+    </div>
+    <div class="fighter">
+      <h2 id="agentBLabel">Agent B</h2>
+      <div class="fighter-lane fighter-lane-ai">
+        <div id="agentBAction" class="action-chip icon-chip idle">-</div>
+        <div id="agentBHistory" class="history-strip ai"></div>
+      </div>
+    </div>
+    <div id="arenaChoicePlayed" class="choice-played">Agent A: - | Agent B: -</div>
+  </div>
+
+  <div class="panel play-action-panel">
+    <div id="arenaOutcomeBanner" class="outcome">Start a match to begin playback.</div>
+    <div class="meter">
+      <div id="arenaProgress" class="meter-fill"></div>
+    </div>
+    <div class="score-row">
+      <span>A Wins: <strong id="arenaAgentAScore">0</strong></span>
+      <span>B Wins: <strong id="arenaAgentBScore">0</strong></span>
+      <span>Ties: <strong id="arenaTieScore">0</strong></span>
+      <span>Rounds Shown: <strong id="arenaRoundsShown">0</strong></span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Round Log</h2>
+    <ul id="arenaRoundLog" class="log-list"></ul>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head compact">
+      <h2>Recent Matches</h2>
+      <button id="refreshArenaMatchesBtn" class="btn btn-secondary" type="button">Refresh</button>
+    </div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Status</th>
+            <th>Matchup</th>
+            <th>Winner</th>
+            <th>Rounds</th>
+            <th>Replay</th>
+          </tr>
+        </thead>
+        <tbody id="arenaMatchesTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+<script src="{{ url_for('static', filename='js/arena.js') }}"></script>
+{% endblock %}

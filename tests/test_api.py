@@ -61,6 +61,61 @@ def test_create_round_and_reset_preserves_round_history(app, client):
     assert len(rounds) == 2
 
 
+def test_agent_vs_agent_match_endpoint_returns_trace(client):
+    response = client.post(
+        "/api/v1/matches",
+        json={
+            "agent_a": "rock",
+            "agent_b": "scissors",
+            "rounds": 6,
+            "seed": 11,
+        },
+    )
+    assert response.status_code == 200
+    match = response.get_json()["match"]
+    assert match["mode"] == "agent_vs_agent"
+    assert match["winner"] == "agent_a"
+    assert match["score_agent_a"] == 6
+    assert match["score_agent_b"] == 0
+    assert match["score_ties"] == 0
+    assert len(match["trace"]) == 6
+    first_round = match["trace"][0]
+    assert first_round["agent_a_action_name"] == "rock"
+    assert first_round["agent_b_action_name"] == "scissors"
+    assert first_round["winner"] == "agent_a"
+
+
+def test_arena_match_job_lifecycle_persists_trace(client):
+    create = client.post(
+        "/api/v1/arena/matches",
+        json={
+            "agent_a": "rock",
+            "agent_b": "scissors",
+            "rounds": 5,
+            "seed": 17,
+        },
+    )
+    assert create.status_code == 202
+    match_id = int(create.get_json()["match"]["id"])
+
+    status = None
+    trace = None
+    for _ in range(60):
+        poll = client.get(f"/api/v1/arena/matches/{match_id}")
+        assert poll.status_code == 200
+        match = poll.get_json()["match"]
+        status = match["status"]
+        trace = match["trace"]
+        if status in {"completed", "failed"}:
+            break
+        time.sleep(0.05)
+
+    assert status == "completed"
+    assert trace is not None
+    assert len(trace) == 5
+    assert trace[0]["winner"] == "agent_a"
+
+
 def test_training_job_lifecycle_and_model_activation(app, client):
     game_id = _create_game(client, "rock")
     for step in range(16):
