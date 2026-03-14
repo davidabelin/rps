@@ -8,7 +8,7 @@
   const agentASelect = document.getElementById("agentASelect");
   const agentBSelect = document.getElementById("agentBSelect");
   const roundsInput = document.getElementById("roundsInput");
-  const seedInput = document.getElementById("seedInput");
+  const historyDepthInput = document.getElementById("historyDepthInput");
   const speedSelect = document.getElementById("speedSelect");
   const pauseArenaBtn = document.getElementById("pauseArenaBtn");
   const arenaStatus = document.getElementById("arenaStatus");
@@ -39,6 +39,31 @@
   let paused = false;
   let eventSource = null;
 
+  function normalizeToken(value) {
+    return String(value || "").trim().toLowerCase();
+  }
+
+  function historyDepth() {
+    const parsed = Number(historyDepthInput && historyDepthInput.value);
+    if (!Number.isFinite(parsed)) {
+      return 8;
+    }
+    return Math.max(1, Math.min(12, Math.round(parsed)));
+  }
+
+  function tokenLetter(token) {
+    const key = normalizeToken(token);
+    if (key === "rock") return "R";
+    if (key === "paper") return "P";
+    if (key === "scissors") return "S";
+    return "-";
+  }
+
+  function buildTokenMarkup(token) {
+    const key = normalizeToken(token);
+    return `<div class="token-badge token-${key}"><span class="token-glyph">${tokenLetter(key)}</span></div>`;
+  }
+
   function setStatus(text) {
     arenaStatus.textContent = text;
   }
@@ -57,7 +82,7 @@
   }
 
   function resetChip(node) {
-    node.textContent = "-";
+    node.innerHTML = '<span class="idle-mark">-</span>';
     node.classList.add("idle");
     node.classList.remove("reveal");
   }
@@ -65,18 +90,18 @@
   function flashChip(node, text) {
     node.classList.remove("idle");
     node.classList.remove("reveal");
-    node.textContent = titleCase(text);
+    node.innerHTML = buildTokenMarkup(text);
     void node.offsetWidth;
     node.classList.add("reveal");
   }
 
   function renderHistory(target, items) {
     target.innerHTML = "";
-    items.slice(0, 8).forEach((item, index) => {
+    items.slice(0, historyDepth()).forEach((item, index) => {
       const chip = document.createElement("div");
       chip.className = "history-icon latest";
       chip.style.opacity = String(index < 4 ? 1 - index * 0.15 : 0.3);
-      chip.textContent = titleCase(item);
+      chip.innerHTML = buildTokenMarkup(item);
       target.appendChild(chip);
     });
   }
@@ -273,7 +298,6 @@
       agent_a: String(agentASelect.value || ""),
       agent_b: String(agentBSelect.value || ""),
       rounds: Number(roundsInput.value || 50),
-      seed: Number(seedInput.value || 7),
     };
     const response = await fetch(`${apiBase}/arena/matches`, {
       method: "POST",
@@ -305,6 +329,13 @@
   refreshArenaMatchesBtn.addEventListener("click", () => {
     fetchMatches().catch((error) => setStatus(`Failed to refresh matches: ${String(error)}`));
   });
+
+  if (historyDepthInput) {
+    historyDepthInput.addEventListener("change", () => {
+      renderHistory(agentAHistory, playerHistoryTokens);
+      renderHistory(agentBHistory, aiHistoryTokens);
+    });
+  }
 
   fetchAgents()
     .then(fetchMatches)

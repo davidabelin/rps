@@ -43,6 +43,16 @@
   const agentDisplayNames = {
     statistical: "frequency",
   };
+  const preferredAgentOrder = [
+    "active_model",
+    "polling_agent",
+    "decision_tree",
+    "statistical",
+    "counter_reactionary",
+    "anti_statistical",
+    "transition_tracker",
+    "copycat_plus",
+  ];
   const historyOpacities = [1.0, 1.0, 1.0, 1.0, 0.75, 0.5, 0.25, 0.125];
   const resultClasses = ["result-win", "result-loss", "result-tie"];
   let handSvgSerial = 0;
@@ -500,7 +510,20 @@
     }
     agentsByName = {};
     agentSelect.innerHTML = "";
-    body.agents.forEach((agent) => {
+    const orderedAgents = body.agents
+      .filter((agent) => !hiddenAgents.has(agent.name))
+      .slice()
+      .sort((left, right) => {
+        const leftRank = preferredAgentOrder.indexOf(left.name);
+        const rightRank = preferredAgentOrder.indexOf(right.name);
+        const normalizedLeft = leftRank === -1 ? Number.MAX_SAFE_INTEGER : leftRank;
+        const normalizedRight = rightRank === -1 ? Number.MAX_SAFE_INTEGER : rightRank;
+        if (normalizedLeft !== normalizedRight) {
+          return normalizedLeft - normalizedRight;
+        }
+        return String(displayAgentName(left.name)).localeCompare(String(displayAgentName(right.name)));
+      });
+    orderedAgents.forEach((agent) => {
       if (hiddenAgents.has(agent.name)) {
         return;
       }
