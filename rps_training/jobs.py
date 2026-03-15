@@ -110,7 +110,13 @@ class TrainingJobManager:
         return self.repository.get_training_job(job_id) or job
 
     def _config_from_payload(self, payload: dict) -> TrainConfig:
-        """Normalize API payload into ``TrainConfig``."""
+        """Normalize one API payload into the pure training configuration.
+
+        Role
+        ----
+        Keep request/UI parsing out of the pure supervised pipeline so
+        `rps_training.supervised` can stay independent of transport concerns.
+        """
 
         hidden_layer_sizes = payload.get("hidden_layer_sizes", [64, 32])
         if isinstance(hidden_layer_sizes, str):
@@ -166,7 +172,14 @@ class TrainingJobManager:
         client.create_task(request={"parent": parent, "task": task})
 
     def run_job_by_id(self, job_id: int) -> None:
-        """Execute a queued training job synchronously by id."""
+        """Execute a queued training job synchronously by id.
+
+        Notes
+        -----
+        This path is primarily used by internal worker endpoints and tests that
+        want the persisted job lifecycle without going through the local thread
+        pool or Cloud Tasks queue.
+        """
 
         job = self.repository.get_training_job(job_id)
         if job is None:

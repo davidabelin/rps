@@ -43,6 +43,8 @@ SKLEARN_AVAILABLE = DecisionTreeClassifier is not None and MLPClassifier is not 
 class TrainConfig:
     """Configuration for supervised training runs.
 
+    Role
+    ----
     The web training API normalizes request payloads into this structure before
     handing control to the pure training pipeline.
     """
@@ -78,6 +80,11 @@ def training_readiness(rounds: list[dict], lookback: int, minimum_samples: int =
     -----
     This function is intentionally UI-facing: it explains readiness in terms the
     training page can display directly without knowing dataset internals.
+
+    Cross-Repo Context
+    ------------------
+    This mirrors the Connect4 readiness helper so both labs can present similar
+    training diagnostics while still using domain-specific sample semantics.
     """
 
     X, _, _ = build_dataset(rounds, lookback=lookback)
@@ -167,6 +174,11 @@ def build_dataset(rounds: list[dict], lookback: int) -> tuple[np.ndarray, np.nda
     ----
     This is the canonical transformation from repository round history into the
     supervised training view of the game.
+
+    Notes
+    -----
+    RPS samples begin only after a full lookback window exists, because the
+    model target is "next player action given the previous `lookback` rounds."
     """
 
     if lookback <= 0:
@@ -222,7 +234,14 @@ def _split(
     test_size: float,
     random_state: int,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, list[tuple[int, ...]], list[tuple[int, ...]]]:
-    """Deterministically split dataset into train/test partitions."""
+    """Deterministically split dataset into train/test partitions.
+
+    Role
+    ----
+    The project uses a lightweight explicit splitter here rather than pulling
+    in additional sklearn utilities for what is meant to remain a transparent
+    local training pipeline.
+    """
 
     count = len(X)
     indices = list(range(count))
@@ -277,6 +296,11 @@ def train_model(rounds: list[dict], config: TrainConfig, artifact_path: str) -> 
     Side Effects
     ------------
     Serializes the trained artifact to local disk or object storage.
+
+    Cross-Repo Context
+    ------------------
+    The returned metrics payload is deliberately shaped like Connect4's so the
+    two training pages can render comparable registry and job summaries.
     """
 
     X, y, contexts = build_dataset(rounds, lookback=config.lookback)
@@ -355,14 +379,20 @@ def train_model(rounds: list[dict], config: TrainConfig, artifact_path: str) -> 
 
 
 def load_artifact(path: str) -> dict[str, Any]:
-    """Load serialized model artifact from local or object storage."""
+    """Load a serialized model artifact from local or object storage.
+
+    Used By
+    -------
+    Model-backed agents that implement the `active_model` path in gameplay and
+    arena flows.
+    """
 
     payload = read_bytes(path)
     return pickle.loads(payload)
 
 
 def _history_features(history: list[dict], lookback: int) -> tuple[np.ndarray, tuple[int, ...]] | None:
-    """Encode most recent history window into model input feature vector."""
+    """Encode the most recent history window into one model input vector."""
 
     if len(history) < lookback:
         return None
@@ -399,6 +429,11 @@ def predict_player_action(artifact: dict[str, Any], history: list[dict]) -> int 
     ------------------
     The special ``active_model`` RPS gameplay path ultimately reaches this logic
     through the model-backed agent implementation.
+
+    Notes
+    -----
+    Returning `None` for short histories lets the caller fall back to a
+    heuristic or baseline agent until enough rounds exist to honor lookback.
     """
 
     config = artifact.get("config", {})
