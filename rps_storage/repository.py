@@ -41,7 +41,20 @@ def _to_sqlite_url(path_value: str) -> str:
 
 
 class RPSRepository:
-    """Persistence facade for games, rounds, jobs, and models tables.
+    """Persistence facade for RPS gameplay, training, RL, and arena tables.
+
+    Role
+    ----
+    This class is the only storage layer used by the `rps_web` blueprints and
+    job managers. It keeps the web/API surface dict-oriented so the rest of the
+    lab can move between SQLite in local development and PostgreSQL in cloud
+    deployment without changing higher-level orchestration code.
+
+    Cross-Repo Context
+    ------------------
+    `rps` and `c4` intentionally expose similar repository shapes so AIX can
+    treat them as sibling labs with parallel gameplay, supervised training,
+    RL, and arena concepts.
 
     Parameters
     ----------
@@ -300,7 +313,18 @@ class RPSRepository:
                 return row or {}
 
     def create_game(self, agent_name: str) -> dict:
-        """Create a new game row initialized to zero score."""
+        """Create the long-lived game shell for one human-vs-agent session stack.
+
+        Role
+        ----
+        A single RPS game id can contain multiple sessions across resets. The
+        current session state lives on the `games` row while individual rounds
+        are written to `rounds`.
+
+        Used By
+        -------
+        `rps_web.blueprints.game` when the play page starts a new game.
+        """
 
         now = utcnow_iso()
         return self._insert_and_fetch(
@@ -392,7 +416,19 @@ class RPSRepository:
         return now
 
     def reset_game(self, game_id: int) -> dict | None:
-        """Start a new session for an existing game id."""
+        """Advance one existing game into a fresh session.
+
+        Role
+        ----
+        RPS keeps the same `game_id` across repeated "new game" actions so the
+        page can preserve the higher-level session container while rounds are
+        segmented by `session_index`.
+
+        Side Effects
+        ------------
+        Resets the rolling score counters on the `games` row and increments the
+        active `session_index`.
+        """
 
         game = self.get_game(game_id)
         if not game:
@@ -458,7 +494,14 @@ class RPSRepository:
         outcome: str,
         reward_delta: int,
     ) -> tuple[dict, dict]:
-        """Persist one round and increment game scores in one transaction.
+        """Persist one round and update the active session counters atomically.
+
+        Role
+        ----
+        This is the critical write path for human-vs-agent RPS play. It keeps
+        the round row and the aggregate `games` counters in the same database
+        transaction so API callers never observe a saved round with stale game
+        totals.
 
         Parameters
         ----------
@@ -486,6 +529,10 @@ class RPSRepository:
         ------
         KeyError
             If game does not exist or session index no longer matches.
+
+        Used By
+        -------
+        `rps_web.blueprints.game` after `rps_core.engine` resolves a round.
         """
 
         now = utcnow_iso()
@@ -615,7 +662,14 @@ class RPSRepository:
         return [dict(row) for row in rows]
 
     def list_rounds_for_training(self) -> list[dict]:
-        """List all rounds in deterministic order for dataset building."""
+        """List the canonical supervised-training rows in deterministic order.
+
+        Role
+        ----
+        The supervised pipeline treats stored RPS rounds as the source of truth
+        for dataset construction. Ordering by game, session, and round index
+        keeps feature reconstruction stable across training runs.
+        """
 
         with self.engine.begin() as conn:
             rows = conn.execute(
@@ -630,7 +684,13 @@ class RPSRepository:
         return [dict(row) for row in rows]
 
     def create_training_job(self, model_type: str, params: dict) -> dict:
-        """Create queued supervised training job record."""
+        """Create the persisted job shell for one supervised training request.
+
+        Cross-Repo Context
+        ------------------
+        This mirrors the `c4` training job lifecycle so the two labs expose the
+        same job-state contract to AIX and to their local training pages.
+        """
 
         now = utcnow_iso()
         return self._insert_and_fetch(
@@ -700,6 +760,12 @@ class RPSRepository:
 
     def create_model(self, name: str, model_type: str, artifact_path: str, lookback: int, metrics: dict) -> dict:
         """Create model metadata row and numeric metric rows.
+
+        Role
+        ----
+        The `models` table is the long-lived registry that powers activation,
+        play-time agent loading, and arena selection. Numeric metrics are split
+        into `model_metrics` rows so later reporting can query them cheaply.
 
         Parameters
         ----------
@@ -805,7 +871,14 @@ class RPSRepository:
             )
 
     def activate_model(self, model_id: int) -> dict | None:
-        """Deactivate all models and activate one target model id."""
+        """Deactivate all models and mark one registry entry as active.
+
+        Role
+        ----
+        The active model is the bridge between supervised training and human
+        play. The play API can resolve `active_model` without knowing anything
+        about artifact selection rules.
+        """
 
         with self._lock:
             with self.engine.begin() as conn:
@@ -815,7 +888,7 @@ class RPSRepository:
         return row
 
     def create_rl_job(self, params: dict) -> dict:
-        """Create queued RL training job record."""
+        """Create the persisted job shell for one RL training request."""
 
         now = utcnow_iso()
         return self._insert_and_fetch(
@@ -880,7 +953,14 @@ class RPSRepository:
         return [dict(row) for row in rows]
 
     def create_arena_match(self, *, agent_a_name: str, agent_b_name: str, params: dict) -> dict:
-        """Create queued arena match record."""
+        """Create the persisted shell for one agent-vs-agent arena match.
+
+        Role
+        ----
+        Arena matches are recorded separately from human play so replay traces,
+        benchmark-style evaluation, and later tournament views can evolve
+        without overloading the `games` and `rounds` tables.
+        """
 
         now = utcnow_iso()
         return self._insert_and_fetch(
@@ -916,7 +996,13 @@ class RPSRepository:
         trace: list[dict] | None = None,
         error_message: str | None = None,
     ) -> dict | None:
-        """Patch mutable arena-match fields and return latest row."""
+        """Patch arena execution state, summary, and replay trace fields.
+
+        Used By
+        -------
+        `rps_web.match_jobs` as a match moves from queued to running to a
+        completed persisted replay.
+        """
 
         updates: list[str] = []
         named: dict[str, Any] = {}

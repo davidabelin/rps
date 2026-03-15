@@ -1,4 +1,18 @@
-"""Round execution helpers for human-vs-agent play loops."""
+"""Round execution helpers for human-vs-agent RPS play loops.
+
+Role
+----
+This module is the pure gameplay layer between web request handling and agent
+implementations. It reconstructs agent state from persisted history and
+produces round results without knowing anything about Flask, storage, or model
+registry concerns.
+
+Cross-Repo Context
+------------------
+`rps_core.engine` and `c4_core.engine` deliberately fill the same role in their
+respective labs: one module owns deterministic gameplay resolution while the
+web/API layer owns persistence and runtime caching.
+"""
 
 from __future__ import annotations
 
@@ -21,6 +35,11 @@ def hydrate_agent(agent: AgentProtocol, rounds: list[dict]) -> RoundObservation:
     -------
     RoundObservation
         Next observation after replay.
+
+    Notes
+    -----
+    The name is kept for backward compatibility. New code should think of this
+    as observation replay rather than a special hydration protocol.
     """
 
     return replay_observation(agent, rounds)
@@ -44,6 +63,11 @@ def replay_observation(agent: AgentProtocol, rounds: list[dict]) -> RoundObserva
     -------
     RoundObservation
         Observation representing the next step after replay.
+
+    Used By
+    -------
+    `play_human_round` and the web layer whenever runtime agent state is not
+    already cached.
     """
 
     agent.reset(seed=None)
@@ -91,6 +115,11 @@ def play_human_round(agent: AgentProtocol, player_action: int, rounds: list[dict
     -------
     RoundResult
         Result payload from the player's perspective.
+
+    Role
+    ----
+    This is the stateless convenience path used when the caller only has stored
+    round history and wants a resolved round in one call.
     """
 
     observation = replay_observation(agent, rounds)
@@ -124,6 +153,12 @@ def play_human_round_stateful(
 
         - ``RoundResult`` for API/UI response
         - next ``RoundObservation`` for subsequent step
+
+    Cross-Repo Context
+    ------------------
+    This is the RPS equivalent of the low-latency cached-runtime path in
+    Connect4. Both labs use it to avoid replaying full history on every move
+    when the web layer already holds a warm agent/runtime pair.
     """
 
     player = int(normalize_action(player_action))
