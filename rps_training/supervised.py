@@ -1,4 +1,17 @@
-"""Supervised learning pipeline for player-action prediction models."""
+"""Supervised learning pipeline for player-action prediction models.
+
+Role
+----
+Convert persisted RPS gameplay into train/test datasets, fit supported model
+types, and serialize artifacts that can later drive ``active_model`` gameplay
+or arena matches.
+
+Cross-Repo Context
+------------------
+This module is the RPS-side analogue of ``c4_training.supervised``. The two
+labs intentionally share the same high-level shape even though the feature
+encodings and sample semantics differ.
+"""
 
 from __future__ import annotations
 
@@ -28,7 +41,11 @@ SKLEARN_AVAILABLE = DecisionTreeClassifier is not None and MLPClassifier is not 
 
 @dataclass(slots=True)
 class TrainConfig:
-    """Configuration for supervised training runs."""
+    """Configuration for supervised training runs.
+
+    The web training API normalizes request payloads into this structure before
+    handing control to the pure training pipeline.
+    """
 
     model_type: str = "decision_tree"
     lookback: int = 5
@@ -56,6 +73,11 @@ def training_readiness(rounds: list[dict], lookback: int, minimum_samples: int =
     -------
     dict
         Readiness diagnostics used by training UI.
+
+    Notes
+    -----
+    This function is intentionally UI-facing: it explains readiness in terms the
+    training page can display directly without knowing dataset internals.
     """
 
     X, _, _ = build_dataset(rounds, lookback=lookback)
@@ -79,7 +101,14 @@ def training_readiness(rounds: list[dict], lookback: int, minimum_samples: int =
 
 
 class FrequencyModel:
-    """Context-frequency baseline used as a lightweight non-sklearn model."""
+    """Context-frequency baseline used as a lightweight non-sklearn model.
+
+    Role
+    ----
+    Provide a deterministic fallback model that preserves the full training and
+    activation pipeline even when scikit-learn-backed models are unavailable or
+    undesirable.
+    """
 
     def __init__(self, lookback: int) -> None:
         """Initialize context count tables for baseline predictions."""
@@ -133,6 +162,11 @@ def build_dataset(rounds: list[dict], lookback: int) -> tuple[np.ndarray, np.nda
     tuple[np.ndarray, np.ndarray, list[tuple[int, ...]]]
         ``X`` features, ``y`` labels, and symbolic context tuples used by the
         frequency baseline.
+
+    Role
+    ----
+    This is the canonical transformation from repository round history into the
+    supervised training view of the game.
     """
 
     if lookback <= 0:
@@ -235,6 +269,14 @@ def train_model(rounds: list[dict], config: TrainConfig, artifact_path: str) -> 
     -------
     dict[str, Any]
         Metrics summary including artifact path.
+
+    Used By
+    -------
+    ``rps_training.jobs.TrainingJobManager``.
+
+    Side Effects
+    ------------
+    Serializes the trained artifact to local disk or object storage.
     """
 
     X, y, contexts = build_dataset(rounds, lookback=config.lookback)
@@ -352,6 +394,11 @@ def predict_player_action(artifact: dict[str, Any], history: list[dict]) -> int 
     -------
     int | None
         Predicted action id, or ``None`` when history is shorter than lookback.
+
+    Cross-Repo Context
+    ------------------
+    The special ``active_model`` RPS gameplay path ultimately reaches this logic
+    through the model-backed agent implementation.
     """
 
     config = artifact.get("config", {})

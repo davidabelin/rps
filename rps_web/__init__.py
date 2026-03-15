@@ -1,4 +1,16 @@
-"""Flask application factory and extension wiring for the RPS web app."""
+"""Flask application factory and extension wiring for the RPS web app.
+
+Role
+----
+Assemble the standalone RPS lab by wiring persistence, gameplay runtime cache,
+training job orchestration, RL jobs, and route blueprints into one Flask app.
+
+Cross-Repo Context
+------------------
+``rps`` is both a standalone service and an AIX-mounted lab. This factory is
+the boundary both deployment modes share, so its config contract also acts as
+the adapter contract used by AIX.
+"""
 
 from __future__ import annotations
 
@@ -25,7 +37,13 @@ def _read_secret_version(secret_version_name: str) -> str:
 
 
 def _resolve_secret_into_config(app: Flask, *, target_key: str, source_key: str) -> None:
-    """Populate a config value from Secret Manager when direct value is empty."""
+    """Populate a config value from Secret Manager when direct value is empty.
+
+    Role
+    ----
+    Keep the standalone app and AIX-mounted app on the same config contract by
+    allowing either direct env values or Secret Manager indirection.
+    """
 
     if str(app.config.get(target_key, "")).strip():
         return
@@ -46,6 +64,8 @@ def _normalize_base_url(value: str) -> str:
 
 
 def _aix_page_url(base_url: str, path: str) -> str:
+    """Build one AIX-owned page URL from the configured hub base URL."""
+
     base = _normalize_base_url(base_url)
     if base == "/":
         return path
@@ -65,6 +85,12 @@ def create_app(config: dict | None = None) -> Flask:
     Flask
         Fully configured Flask app with repositories, job managers, and
         blueprints registered.
+
+    Cross-Repo Context
+    ------------------
+    AIX imports this same factory when it mounts ``/rps`` locally. In cloud
+    production, App Engine deploys the same application as the standalone
+    ``rps`` service routed under the umbrella path layout.
     """
 
     root = Path(__file__).resolve().parents[1]
@@ -150,6 +176,8 @@ def create_app(config: dict | None = None) -> Flask:
 
     @app.context_processor
     def inject_template_globals() -> dict:
+        """Expose AIX navigation URLs to the standalone RPS templates."""
+
         hub_url = _normalize_base_url(app.config.get("AIX_HUB_URL", "/"))
         return {
             "aix_hub_url": hub_url,

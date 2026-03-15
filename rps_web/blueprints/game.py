@@ -1,4 +1,11 @@
-"""Gameplay API routes for human-vs-agent interactions."""
+"""Gameplay API routes for human-vs-agent interactions.
+
+Role
+----
+Expose the low-latency gameplay API for the RPS web UI, including game session
+creation, round submission, reset behavior, latency telemetry, and one-shot
+agent-vs-agent match execution.
+"""
 
 from __future__ import annotations
 
@@ -21,19 +28,19 @@ game_bp = Blueprint("game_api", __name__, url_prefix="/api/v1")
 
 
 def _repo():
-    """Return storage repository extension."""
+    """Return the repository extension that owns persisted RPS state."""
 
     return current_app.extensions["repository"]
 
 
 def _runtime():
-    """Return in-memory game runtime cache extension."""
+    """Return the in-memory runtime cache used for low-latency play."""
 
     return current_app.extensions["game_runtime"]
 
 
 def _serialize_game(game: dict) -> dict:
-    """Serialize database game row into API response shape."""
+    """Serialize one persisted game row into the API response contract."""
 
     return {
         "game_id": int(game["id"]),
@@ -48,10 +55,14 @@ def _serialize_game(game: dict) -> dict:
 
 
 def _available_agent_names() -> list[str]:
+    """Return the set of built-in playable agent names."""
+
     return [spec.name for spec in list_agent_specs()]
 
 
 def _default_match_opponent(agent_name: str) -> str:
+    """Choose a default arena/match opponent distinct from ``agent_name``."""
+
     for candidate in _available_agent_names():
         if candidate != agent_name:
             return candidate
@@ -59,6 +70,14 @@ def _default_match_opponent(agent_name: str) -> str:
 
 
 def _build_agent_from_name(agent_name: str):
+    """Resolve one gameplay-facing agent name to a concrete agent instance.
+
+    Cross-Repo Context
+    ------------------
+    ``active_model`` binds the model registry into the same gameplay endpoint
+    surface used by heuristics.
+    """
+
     if agent_name == "active_model":
         model_record = _repo().get_active_model()
         if model_record is None:
@@ -142,6 +161,11 @@ def _load_runtime_state(game: dict) -> GameRuntimeState:
     -------
     GameRuntimeState
         Cached or newly hydrated runtime state.
+
+    Role
+    ----
+    Hide the replay-and-cache logic required to turn persisted game history into
+    a ready-to-play agent state for the next round request.
     """
 
     game_id = int(game["id"])
@@ -198,7 +222,7 @@ def list_agents():
 
 @game_bp.post("/games")
 def create_game():
-    """Create a new game session with selected agent/model."""
+    """Create a new game session with the selected heuristic or active model."""
 
     payload = request.get_json(silent=True) or {}
     agent_name = str(payload.get("agent", current_app.config["DEFAULT_AGENT"]))
@@ -235,6 +259,11 @@ def play_round(game_id: int):
     -------
     flask.Response
         JSON response with updated game score and round result payload.
+
+    Side Effects
+    ------------
+    Mutates persistent game state, updates the runtime cache, and may append
+    round-event logs or latency telemetry-ready timing metadata.
     """
 
     started = perf_counter()
@@ -331,7 +360,7 @@ def play_round(game_id: int):
 
 @game_bp.post("/games/<int:game_id>/reset")
 def reset_game(game_id: int):
-    """Reset a game score while preserving historical rounds."""
+    """Reset the live score for one game while preserving historical rounds."""
 
     updated_game = _repo().reset_game(game_id)
     if updated_game is None:
@@ -342,7 +371,13 @@ def reset_game(game_id: int):
 
 @game_bp.post("/matches")
 def run_match():
-    """Run one non-persisted agent-vs-agent match and return a replay trace."""
+    """Run one non-persisted agent-vs-agent match and return a replay trace.
+
+    Notes
+    -----
+    This endpoint is intentionally stateless. The persisted arena workflow lives
+    in ``rps_web.match_jobs`` and ``rps_web.blueprints.arena``.
+    """
 
     payload = request.get_json(silent=True) or {}
     agent_a_name = str(payload.get("agent_a", current_app.config["DEFAULT_AGENT"]))

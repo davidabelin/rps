@@ -1,4 +1,10 @@
-"""Agent-vs-agent match helpers for replayable RPS sessions."""
+"""Agent-vs-agent match helpers for replayable RPS sessions.
+
+Role
+----
+Provide the neutral replay generator used by arena jobs, non-persisted match
+API endpoints, and any later tournament-style evaluation work.
+"""
 
 from __future__ import annotations
 
@@ -11,6 +17,8 @@ from rps_core.types import RoundObservation, RoundTransition, normalize_action
 
 
 def _winner_from_reward(reward_delta: int) -> str:
+    """Map agent-A reward sign to the arena winner label."""
+
     if reward_delta > 0:
         return "agent_a"
     if reward_delta < 0:
@@ -19,6 +27,8 @@ def _winner_from_reward(reward_delta: int) -> str:
 
 
 def _transition_outcome(reward_delta: int) -> str:
+    """Map reward sign into the player/ai/tie labels expected by agents."""
+
     if reward_delta > 0:
         return "player"
     if reward_delta < 0:
@@ -36,7 +46,28 @@ def play_agent_match(
     seed: int | None = None,
     on_round: Callable[[dict], None] | None = None,
 ) -> dict:
-    """Run one replayable RPS match between two agents."""
+    """Run one replayable RPS match between two agents.
+
+    Role
+    ----
+    Execute the canonical agent-vs-agent match loop while emitting a trace that
+    can be persisted, streamed, or replayed by the web arena.
+
+    Parameters
+    ----------
+    on_round : callable | None
+        Optional callback invoked after each resolved round with a JSON-ready
+        frame payload.
+
+    Returns
+    -------
+    dict
+        Match summary plus full replay trace.
+
+    Used By
+    -------
+    ``rps_web.match_jobs.MatchJobManager`` and ``rps_web.blueprints.game``.
+    """
 
     if int(rounds) <= 0:
         raise ValueError("rounds must be a positive integer.")

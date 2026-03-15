@@ -1,4 +1,11 @@
-"""Asynchronous orchestration for supervised training jobs."""
+"""Asynchronous orchestration for supervised training jobs.
+
+Role
+----
+Own the operational lifecycle around RPS supervised training: validation,
+background execution, optional Cloud Tasks submission, and model-registry
+publication after a successful artifact build.
+"""
 
 from __future__ import annotations
 
@@ -78,6 +85,11 @@ class TrainingJobManager:
         -------
         dict
             Latest training job row after enqueue/submit attempt.
+
+        Cross-Repo Context
+        ------------------
+        This is the main bridge between the web training UI/API and the pure
+        supervised pipeline in ``rps_training.supervised``.
         """
 
         config = self._config_from_payload(payload)
@@ -119,7 +131,13 @@ class TrainingJobManager:
         )
 
     def _enqueue_job(self, job_id: int) -> None:
-        """Create one Cloud Tasks HTTP task for a training job id."""
+        """Create one Cloud Tasks HTTP task for a training job id.
+
+        Notes
+        -----
+        This path is used by cloud deployments where the training worker is
+        decoupled from the web-serving request thread.
+        """
 
         if tasks_v2 is None:
             raise RuntimeError("google-cloud-tasks is required for task_queue execution mode")
@@ -162,7 +180,13 @@ class TrainingJobManager:
         self._run_job(job_id, config)
 
     def _run_job(self, job_id: int, config: TrainConfig) -> None:
-        """Run full supervised training lifecycle for one job."""
+        """Run the full supervised training lifecycle for one job.
+
+        Side Effects
+        ------------
+        Reads repository training data, writes an artifact to local or object
+        storage, creates a model-registry row, and updates job progress/status.
+        """
 
         try:
             self.repository.update_training_job(job_id, status="running", progress=0.05)

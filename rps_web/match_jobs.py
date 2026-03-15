@@ -1,4 +1,10 @@
-"""Asynchronous orchestration for persisted agent-vs-agent RPS matches."""
+"""Asynchronous orchestration for persisted agent-vs-agent RPS matches.
+
+Role
+----
+Translate arena API payloads into background replayable matches, persist their
+intermediate state, and expose traces that the web spectator UI can stream.
+"""
 
 from __future__ import annotations
 
@@ -10,10 +16,14 @@ from rps_storage.repository import RPSRepository
 
 
 def _available_agent_names() -> list[str]:
+    """Return all heuristic and built-in agent names exposed by the lab."""
+
     return [spec.name for spec in list_agent_specs()]
 
 
 def _default_match_opponent(agent_name: str) -> str:
+    """Pick a simple default opponent distinct from the requested agent."""
+
     for candidate in _available_agent_names():
         if candidate != agent_name:
             return candidate
@@ -21,6 +31,14 @@ def _default_match_opponent(agent_name: str) -> str:
 
 
 def _build_agent_from_name(repository: RPSRepository, agent_name: str):
+    """Resolve one arena-facing agent identifier into a concrete agent object.
+
+    Cross-Repo Context
+    ------------------
+    The special ``active_model`` name bridges the web model registry into the
+    same arena pipeline used by built-in heuristic agents.
+    """
+
     if agent_name == "active_model":
         model_record = repository.get_active_model()
         if model_record is None:
@@ -32,7 +50,13 @@ def _build_agent_from_name(repository: RPSRepository, agent_name: str):
 
 
 class MatchJobManager:
-    """Manage background arena matches and persisted replay traces."""
+    """Manage background arena matches and persisted replay traces.
+
+    Role
+    ----
+    Own the asynchronous arena lifecycle above the pure
+    ``rps_core.matches.play_agent_match`` execution helper.
+    """
 
     def __init__(self, repository: RPSRepository, default_agent: str, max_workers: int = 2) -> None:
         self.repository = repository
@@ -40,6 +64,8 @@ class MatchJobManager:
         self.executor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="rps-arena")
 
     def submit_job(self, payload: dict) -> dict:
+        """Validate one arena payload, persist the match row, and enqueue work."""
+
         config = self._config_from_payload(payload)
         _build_agent_from_name(self.repository, config["agent_a"])
         _build_agent_from_name(self.repository, config["agent_b"])
@@ -52,6 +78,8 @@ class MatchJobManager:
         return job
 
     def _config_from_payload(self, payload: dict) -> dict:
+        """Normalize one API payload into the stored arena match config."""
+
         agent_a = str(payload.get("agent_a", self.default_agent))
         agent_b = str(payload.get("agent_b", _default_match_opponent(agent_a)))
         rounds = int(payload.get("rounds", 50))
@@ -67,6 +95,8 @@ class MatchJobManager:
         }
 
     def _run_job(self, job_id: int, config: dict) -> None:
+        """Execute one persisted arena match and stream progress into storage."""
+
         trace: list[dict] = []
         rounds = int(config["rounds"])
         try:
@@ -139,4 +169,6 @@ class MatchJobManager:
             )
 
     def shutdown(self) -> None:
+        """Release local executor resources without waiting for active jobs."""
+
         self.executor.shutdown(wait=False)
