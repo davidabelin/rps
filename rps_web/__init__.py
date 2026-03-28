@@ -59,6 +59,8 @@ def _resolve_secret_into_config(app: Flask, *, target_key: str, source_key: str)
 
 
 def _normalize_base_url(value: str) -> str:
+    """Normalize the configured AIX hub base URL for footer/navigation links."""
+
     raw = str(value or "").strip()
     return raw or "/"
 

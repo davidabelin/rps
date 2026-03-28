@@ -23,12 +23,16 @@ from rps_training.supervised import TrainConfig, train_model
 
 
 def _repository(db_path: str) -> RPSRepository:
+    """Open the RPS repository and ensure the schema exists."""
+
     repo = RPSRepository(db_path)
     repo.init_schema()
     return repo
 
 
 def _resolve_agent(repo: RPSRepository, agent_name: str):
+    """Resolve one CLI agent token into a playable agent instance."""
+
     if agent_name == "active_model":
         model = repo.get_active_model()
         if model is None:
@@ -38,11 +42,15 @@ def _resolve_agent(repo: RPSRepository, agent_name: str):
 
 
 def _parse_hidden_layers(raw: str) -> tuple[int, ...]:
+    """Parse one comma-separated hidden-layer string for MLP training."""
+
     values = tuple(int(part.strip()) for part in str(raw).split(",") if part.strip())
     return values or (64, 32)
 
 
 def _resolve_batch_size(raw: str):
+    """Normalize a batch-size token into ``auto`` or an integer."""
+
     token = str(raw).strip().lower()
     if token in {"", "auto"}:
         return "auto"
@@ -50,6 +58,8 @@ def _resolve_batch_size(raw: str):
 
 
 def _player_action_for_step(args, step_index: int, rng: Random):
+    """Choose the human-side action for one CLI round."""
+
     if args.interactive:
         while True:
             raw = input(f"Round {step_index + 1} action [rock/paper/scissors or r/p/s, q=quit]: ").strip().lower()
@@ -68,6 +78,8 @@ def _player_action_for_step(args, step_index: int, rng: Random):
 
 
 def cmd_agents(args) -> int:
+    """Print the registered heuristic and model-backed agent names."""
+
     print("Registered heuristic agents:")
     for spec in list_agent_specs():
         print(f"- {spec.name}: {spec.description}")
@@ -76,6 +88,8 @@ def cmd_agents(args) -> int:
 
 
 def cmd_models(args) -> int:
+    """Print recent model-registry rows from the configured repository."""
+
     repo = _repository(args.db_path)
     rows = repo.list_models(limit=args.limit)
     if not rows:
@@ -92,6 +106,8 @@ def cmd_models(args) -> int:
 
 
 def cmd_play(args) -> int:
+    """Run one persisted text-mode match against the selected agent."""
+
     repo = _repository(args.db_path)
     available = {spec.name for spec in list_agent_specs()}
     if args.agent != "active_model" and args.agent not in available:
@@ -142,6 +158,8 @@ def cmd_play(args) -> int:
 
 
 def cmd_train_supervised(args) -> int:
+    """Train one supervised model from stored round history."""
+
     repo = _repository(args.db_path)
     rounds = repo.list_rounds_for_training()
     config = TrainConfig(
@@ -176,6 +194,8 @@ def cmd_train_supervised(args) -> int:
 
 
 def cmd_train_rl(args) -> int:
+    """Train one tabular RL policy and store it in the model registry."""
+
     repo = _repository(args.db_path)
     opponents = tuple(part.strip() for part in str(args.opponents).split(",") if part.strip())
     config = RLTrainConfig(
@@ -212,6 +232,8 @@ def cmd_train_rl(args) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the top-level CLI parser and subcommand tree."""
+
     parser = argparse.ArgumentParser(description="RPS CLI for play/data collection/training experiments.")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
@@ -275,6 +297,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    """Parse CLI arguments and dispatch the selected subcommand."""
+
     parser = build_parser()
     args = parser.parse_args()
     return int(args.fn(args))
