@@ -944,3 +944,371 @@ input[type="number"] {
     align-items: flex-start;
   }
 }
+
+/* Compact AIX Labs UI pass. */
+:root {
+  --shadow: 0 7px 18px rgba(25, 31, 44, 0.08);
+}
+
+body {
+  font-size: 0.86rem;
+}
+
+.bg-orb {
+  filter: blur(42px);
+  opacity: 0.2;
+}
+
+.bg-orb-a {
+  width: 195px;
+  height: 195px;
+  top: -70px;
+}
+
+.bg-orb-b {
+  width: 210px;
+  height: 210px;
+  bottom: -95px;
+}
+
+.site-header {
+  padding: 0.62rem clamp(0.65rem, 2vw, 1.35rem);
+  gap: 0.55rem;
+}
+
+.brand {
+  font-size: 0.82rem;
+}
+
+.site-nav {
+  gap: 0.42rem;
+  flex-wrap: wrap;
+}
+
+.site-nav a {
+  padding: 0.18rem 0.4rem;
+  font-size: 0.8rem;
+}
+
+.page {
+  width: min(880px, 94vw);
+  margin: 0 auto 1.25rem;
+}
+
+.hero {
+  border-radius: 12px;
+  padding: clamp(0.7rem, 1.6vw, 1.1rem);
+}
+
+.eyebrow,
+.status-kicker,
+.score-label {
+  letter-spacing: 0.08em;
+  font-size: 0.62rem;
+}
+
+h1 {
+  font-size: clamp(1.05rem, 2.2vw, 1.52rem);
+}
+
+h2 {
+  font-size: clamp(0.88rem, 1.5vw, 1.04rem);
+}
+
+.lede,
+p,
+li,
+.status,
+.panel-note {
+  font-size: 0.82rem;
+  line-height: 1.36;
+}
+
+.grid {
+  margin-top: 0.62rem;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.52rem;
+}
+
+.stack,
+.play-stack,
+.play-main-column,
+.play-sidebar,
+.play-setup-panel,
+.play-arena-panel,
+.hero-status,
+.score-card {
+  gap: 0.52rem;
+}
+
+.card,
+.panel {
+  border-radius: 10px;
+  padding: 0.62rem;
+}
+
+.panel-head {
+  gap: 0.55rem;
+}
+
+.score-grid {
+  gap: 0.42rem;
+}
+
+.score-card,
+.status-card,
+.inline-details,
+.metrics {
+  border-radius: 9px;
+  padding: 0.48rem 0.55rem;
+}
+
+.score-card strong {
+  font-size: 0.95rem;
+}
+
+.btn {
+  min-height: 2.05rem;
+  border-radius: 8px;
+  padding: 0.3rem 0.55rem;
+  font-size: 0.82rem;
+}
+
+.train-form > .btn {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+select,
+input {
+  min-height: 2.05rem;
+  border-radius: 7px;
+  padding: 0.28rem 0.42rem;
+  font-size: 0.82rem;
+}
+
+.controls-row {
+  gap: 0.34rem;
+}
+
+.play-layout {
+  grid-template-columns: minmax(168px, 195px) minmax(0, 1.15fr) minmax(180px, 205px);
+  gap: 0.58rem;
+}
+
+.play-hero {
+  gap: 0.55rem;
+}
+
+.arena {
+  gap: 0.55rem;
+}
+
+.fighter-lane {
+  min-height: 96px;
+}
+
+.history-strip {
+  min-height: 56px;
+  max-width: 170px;
+}
+
+.history-icon {
+  width: 40px;
+  height: 48px;
+  border-radius: 9px;
+}
+
+.action-chip {
+  width: min(112px, 100%);
+  border-radius: 9px;
+  padding: 0.16rem;
+  letter-spacing: 0.06em;
+}
+
+.icon-chip {
+  width: 82px;
+  max-width: 82px;
+  height: 94px;
+}
+
+.token-badge {
+  width: min(66px, 100%);
+  border-width: 2px;
+}
+
+.history-icon .token-badge {
+  width: 30px;
+}
+
+.token-glyph {
+  font-size: 1.12rem;
+}
+
+.history-icon .token-glyph {
+  font-size: 0.76rem;
+}
+
+.gesture-label {
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+}
+
+.history-icon .gesture-label {
+  font-size: 0.5rem;
+}
+
+.idle-mark {
+  font-size: 1.35rem;
+}
+
+.versus {
+  font-size: 0.95rem;
+}
+
+.versus-wrap {
+  min-width: 44px;
+}
+
+.clash-fx {
+  width: 54px;
+  height: 54px;
+}
+
+.choice-played {
+  max-width: min(100%, 17rem);
+  font-size: 0.78rem;
+  padding: 0.16rem 0.62rem;
+}
+
+.train-form {
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 0.42rem;
+  align-items: start;
+}
+
+.train-form label {
+  gap: 0.24rem;
+  min-width: 0;
+  font-size: 0.78rem;
+}
+
+.label-line {
+  gap: 0.22rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.help-dot {
+  width: 0.82rem;
+  height: 0.82rem;
+  font-size: 0.58rem;
+}
+
+.form-note {
+  font-size: 0.74rem;
+  line-height: 1.28;
+}
+
+.meter {
+  margin-top: 0.38rem;
+  height: 0.52rem;
+}
+
+.metrics {
+  margin-top: 0.45rem;
+  min-height: 68px;
+  font-size: 0.72rem;
+  line-height: 1.32;
+}
+
+.job-chart {
+  margin-top: 0.45rem;
+  max-width: 380px;
+  height: 68px;
+}
+
+.data-table {
+  margin-top: 0.45rem;
+  font-size: 0.78rem;
+}
+
+.data-table th,
+.data-table td {
+  padding: 0.34rem 0.28rem;
+}
+
+.footer-inner {
+  width: min(880px, 94vw);
+  border-radius: 10px;
+  padding: 0.55rem 0.7rem;
+  gap: 0.48rem;
+}
+
+.footer-copy,
+.footer-links a {
+  font-size: 0.76rem;
+}
+
+@media (max-width: 700px) {
+  .play-layout,
+  .arena,
+  .train-form {
+    grid-template-columns: 1fr;
+  }
+
+  body {
+    overflow-x: hidden;
+  }
+
+  .page {
+    width: calc(100vw - 0.8rem);
+    overflow-x: hidden;
+  }
+
+  .hero,
+  .panel,
+  .card {
+    max-width: 100%;
+  }
+
+  .hero-status {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+
+  .history-strip {
+    max-width: min(44vw, 125px);
+  }
+
+  .history-icon {
+    width: 36px;
+    height: 43px;
+  }
+
+  .icon-chip {
+    width: 72px;
+    height: 84px;
+    max-width: 72px;
+  }
+
+  .score-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .controls-row > *,
+  .play-actions-row .btn,
+  .train-form > .btn {
+    width: 100%;
+  }
+
+  .panel {
+    overflow-x: auto;
+  }
+
+  .lede,
+  p,
+  .status,
+  .panel-note {
+    overflow-wrap: anywhere;
+  }
+}
