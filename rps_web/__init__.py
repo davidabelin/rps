@@ -4,19 +4,12 @@ Role
 ----
 Assemble the standalone RPS lab by wiring persistence, gameplay runtime cache,
 training job orchestration, RL jobs, and route blueprints into one Flask app.
-
-Cross-Repo Context
-------------------
-``rps`` is both a standalone service and an AIX-mounted lab. This factory is
-the boundary both deployment modes share, so its config contract also acts as
-the adapter contract used by AIX.
 """
 
 from __future__ import annotations
 
 import os
 from pathlib import Path
-from urllib.parse import urljoin
 
 from flask import Flask
 
@@ -41,8 +34,8 @@ def _resolve_secret_into_config(app: Flask, *, target_key: str, source_key: str)
 
     Role
     ----
-    Keep the standalone app and AIX-mounted app on the same config contract by
-    allowing either direct env values or Secret Manager indirection.
+    Keep local and cloud deployments on the same config contract by allowing
+    either direct env values or Secret Manager indirection.
     """
 
     if str(app.config.get(target_key, "")).strip():
@@ -56,22 +49,6 @@ def _resolve_secret_into_config(app: Flask, *, target_key: str, source_key: str)
         raise RuntimeError(
             f"Failed loading {target_key} from Secret Manager secret version '{secret_version_name}': {exc}"
         ) from exc
-
-
-def _normalize_base_url(value: str) -> str:
-    """Normalize the configured AIX hub base URL for footer/navigation links."""
-
-    raw = str(value or "").strip()
-    return raw or "/"
-
-
-def _aix_page_url(base_url: str, path: str) -> str:
-    """Build one AIX-owned page URL from the configured hub base URL."""
-
-    base = _normalize_base_url(base_url)
-    if base == "/":
-        return path
-    return urljoin(base.rstrip("/") + "/", path.lstrip("/"))
 
 
 def create_app(config: dict | None = None) -> Flask:
@@ -88,11 +65,6 @@ def create_app(config: dict | None = None) -> Flask:
         Fully configured Flask app with repositories, job managers, and
         blueprints registered.
 
-    Cross-Repo Context
-    ------------------
-    AIX imports this same factory when it mounts ``/rps`` locally. In cloud
-    production, App Engine deploys the same application as the standalone
-    ``rps`` service routed under the umbrella path layout.
     """
 
     root = Path(__file__).resolve().parents[1]
@@ -124,7 +96,6 @@ def create_app(config: dict | None = None) -> Flask:
         ROUND_EVENT_LOGGING_MODE=os.getenv("ROUND_EVENT_LOGGING_MODE", "auto"),
         LATENCY_EVENT_LOGGING_MODE=os.getenv("LATENCY_EVENT_LOGGING_MODE", "on"),
         AGENT_MATCH_DEFAULT_ROUNDS=int(os.getenv("AGENT_MATCH_DEFAULT_ROUNDS", "50")),
-        AIX_HUB_URL=os.getenv("AIX_HUB_URL", "/"),
     )
     if config:
         app.config.update(config)
@@ -175,17 +146,5 @@ def create_app(config: dict | None = None) -> Flask:
     app.register_blueprint(benchmarks_bp)
     app.register_blueprint(rl_bp)
     app.extensions["rl_jobs"] = RLJobManager(repository, models_dir=app.config["MODELS_DIR"])
-
-    @app.context_processor
-    def inject_template_globals() -> dict:
-        """Expose AIX navigation URLs to the standalone RPS templates."""
-
-        hub_url = _normalize_base_url(app.config.get("AIX_HUB_URL", "/"))
-        return {
-            "aix_hub_url": hub_url,
-            "aix_contact_url": _aix_page_url(hub_url, "/contact"),
-            "aix_privacy_url": _aix_page_url(hub_url, "/privacy"),
-            "aix_toc_url": _aix_page_url(hub_url, "/toc"),
-        }
 
     return app

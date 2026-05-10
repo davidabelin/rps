@@ -31,4 +31,8 @@ if base_path:
 
 
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    app.run(
+        host=str(os.getenv("HOST", "127.0.0.1")).strip() or "127.0.0.1",
+        port=int(os.getenv("PORT", "5103")),
+        debug=str(os.getenv("FLASK_DEBUG", "1")).strip().lower() in {"1", "true", "yes", "on"},
+    )
