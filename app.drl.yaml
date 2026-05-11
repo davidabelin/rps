@@ -1,0 +1,15 @@
+runtime: python313
+service: rps
+entrypoint: gunicorn --worker-tmp-dir /tmp -b :$PORT run:app
+
+env_variables:
+  DB_PATH: /tmp/rps.db
+  EVENTS_DIR: /tmp/rps/events
+  MODELS_DIR: /tmp/rps/models
+  EXPORTS_DIR: /tmp/rps/exports
+  TRAINING_EXECUTION_MODE: local
+  ROUND_EVENT_LOGGING_MODE: auto
+  LATENCY_EVENT_LOGGING_MODE: off
+  AGENT_MATCH_DEFAULT_ROUNDS: "50"
+
+service_account: administrator@deeprl-031026.iam.gserviceaccount.com
