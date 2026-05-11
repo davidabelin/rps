@@ -96,6 +96,7 @@ def create_app(config: dict | None = None) -> Flask:
         ROUND_EVENT_LOGGING_MODE=os.getenv("ROUND_EVENT_LOGGING_MODE", "auto"),
         LATENCY_EVENT_LOGGING_MODE=os.getenv("LATENCY_EVENT_LOGGING_MODE", "on"),
         AGENT_MATCH_DEFAULT_ROUNDS=int(os.getenv("AGENT_MATCH_DEFAULT_ROUNDS", "50")),
+        DRL_HOME_URL=os.getenv("DRL_HOME_URL", "http://127.0.0.1:5000/"),
     )
     if config:
         app.config.update(config)
@@ -146,5 +147,11 @@ def create_app(config: dict | None = None) -> Flask:
     app.register_blueprint(benchmarks_bp)
     app.register_blueprint(rl_bp)
     app.extensions["rl_jobs"] = RLJobManager(repository, models_dir=app.config["MODELS_DIR"])
+
+    @app.context_processor
+    def inject_shared_links() -> dict[str, str]:
+        """Expose parent-lab navigation without coupling this app to DRL routes."""
+
+        return {"drl_home_url": str(app.config.get("DRL_HOME_URL", "")).strip()}
 
     return app

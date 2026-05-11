@@ -11,5 +11,6 @@ env_variables:
   ROUND_EVENT_LOGGING_MODE: auto
   LATENCY_EVENT_LOGGING_MODE: off
   AGENT_MATCH_DEFAULT_ROUNDS: "50"
+  DRL_HOME_URL: https://deeprl-031026.wm.r.appspot.com/
 
 service_account: administrator@deeprl-031026.iam.gserviceaccount.com
