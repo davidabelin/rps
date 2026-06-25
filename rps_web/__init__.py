@@ -98,7 +98,7 @@ def create_app(config: dict | None = None) -> Flask:
         ROUND_EVENT_LOGGING_MODE=os.getenv("ROUND_EVENT_LOGGING_MODE", "auto"),
         LATENCY_EVENT_LOGGING_MODE=os.getenv("LATENCY_EVENT_LOGGING_MODE", "on"),
         AGENT_MATCH_DEFAULT_ROUNDS=int(os.getenv("AGENT_MATCH_DEFAULT_ROUNDS", "50")),
-        DRL_HOME_URL=os.getenv("DRL_HOME_URL", "http://127.0.0.1:5000/"),
+        DRL_HOME_URL=os.getenv("DRL_HOME_URL", "https://aix-labs.uw.r.appspot.com/"),
     )
     if config:
         app.config.update(config)
