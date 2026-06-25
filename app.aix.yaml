@@ -2,11 +2,15 @@ runtime: python313
 service: rps
 entrypoint: gunicorn --worker-tmp-dir /tmp -b :$PORT run:app
 
+automatic_scaling:
+  max_instances: 1
+
 env_variables:
   APP_BASE_PATH: /rps
   AIX_HUB_URL: https://aix-labs.uw.r.appspot.com/
   DATABASE_URL: ""
   DB_PATH: /tmp/rps.db
+  DB_SNAPSHOT_URI: gs://aix-labs-data/rps/db/rps.sqlite3
   EVENTS_DIR: gs://aix-labs-data/rps/events
   MODELS_DIR: gs://aix-labs-data/rps/models
   EXPORTS_DIR: gs://aix-labs-data/rps/exports

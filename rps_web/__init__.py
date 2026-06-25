@@ -14,6 +14,7 @@ from pathlib import Path
 from flask import Flask
 
 from rps_storage.repository import RPSRepository
+from rps_storage.sqlite_snapshot import SQLiteSnapshotMirror
 from rps_web.match_jobs import MatchJobManager
 from rps_training.jobs import TrainingJobManager
 from rps_web.runtime import GameRuntimeCache
@@ -79,6 +80,7 @@ def create_app(config: dict | None = None) -> Flask:
         DATABASE_URL=os.getenv("DATABASE_URL", ""),
         DATABASE_URL_SECRET=os.getenv("DATABASE_URL_SECRET", ""),
         DB_PATH=os.getenv("DB_PATH", str(data_dir / "rps.db")),
+        DB_SNAPSHOT_URI=os.getenv("DB_SNAPSHOT_URI", ""),
         EVENTS_DIR=os.getenv("EVENTS_DIR", str(data_dir / "events")),
         MODELS_DIR=os.getenv("MODELS_DIR", str(data_dir / "models")),
         EXPORTS_DIR=os.getenv("EXPORTS_DIR", str(data_dir / "exports")),
@@ -113,9 +115,27 @@ def create_app(config: dict | None = None) -> Flask:
         source_key="INTERNAL_WORKER_TOKEN_SECRET",
     )
 
+    sqlite_snapshot = None
+    if not app.config["DATABASE_URL"]:
+        sqlite_snapshot = SQLiteSnapshotMirror(
+            db_path=str(app.config["DB_PATH"]),
+            snapshot_uri=str(app.config["DB_SNAPSHOT_URI"]),
+            logger=app.logger,
+        )
+        sqlite_snapshot.download_if_missing()
+
     database_target = app.config["DATABASE_URL"] or app.config["DB_PATH"]
     repository = RPSRepository(database_target)
     repository.init_schema()
+    if sqlite_snapshot is not None:
+        sqlite_snapshot.sync_after_schema_init()
+        app.extensions["sqlite_snapshot"] = sqlite_snapshot
+
+        @app.after_request
+        def mirror_sqlite_snapshot(response):
+            sqlite_snapshot.upload_if_changed()
+            return response
+
     training_jobs = TrainingJobManager(
         repository,
         models_dir=app.config["MODELS_DIR"],
