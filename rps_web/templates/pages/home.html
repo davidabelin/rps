@@ -1,36 +1,82 @@
 {% extends "base.html" %}
 {% block title %}RPS Agent Lab | Home{% endblock %}
 {% block content %}
-<section class="hero">
-  <p class="eyebrow">Flask + Agent Lab + Training Pipelines</p>
-  <h1>Build, benchmark, and deploy Rock-Paper-Scissors AI agents.</h1>
+<section class="hero hero-hub">
+  <p class="eyebrow">An AIX Labs playground</p>
+  <h1 class="wordmark">
+    <span class="wordmark-mark">RPS</span>
+    <span class="wordmark-sub">Agent Lab</span>
+  </h1>
   <p class="lede">
-    Play against heuristic or trained agents, generate datasets from real matches,
-    and train new models through the web UI or scripts.
+    Throw rock, paper, or scissors against agents that learn your habits. Then pit agents against
+    each other, turn real matches into training data, and train and benchmark your own models.
+    No sign-up needed.
   </p>
   <div class="hero-actions">
-    <a class="btn btn-primary" href="{{ url_for('main.play_page') }}">Start Playing</a>
-    <a class="btn btn-secondary" href="{{ url_for('main.arena_page') }}">Open Arena</a>
-    <a class="btn btn-secondary" href="{{ url_for('main.training_page') }}">Open Training Lab</a>
+    <a class="btn btn-primary btn-lg" href="{{ url_for('main.play_page') }}">Start playing <span class="btn-arrow" aria-hidden="true">&rarr;</span></a>
+    <a class="btn btn-ghost btn-lg" href="{{ url_for('main.arena_page') }}">Open the arena</a>
+    <a class="btn btn-ghost btn-lg" href="{{ url_for('main.training_page') }}">Train a model</a>
   </div>
+  <ul class="hero-stats" aria-label="At a glance">
+    <li><strong>3</strong> throws</li>
+    <li><strong>10+</strong> heuristic opponents</li>
+    <li><strong>0</strong> sign-ups required</li>
+  </ul>
 </section>
 
-<section class="grid">
+<section class="grid" aria-label="What you can do">
   <article class="card">
-    <h2>Human vs AI</h2>
-    <p>Play with animated reveal, running score, and selectable AI opponents.</p>
+    <span class="card-badge" aria-hidden="true">
+      <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="16" cy="8.5" r="4.5"/>
+        <rect x="3.5" y="18.5" width="9" height="9" rx="1.5"/>
+        <path d="M21 27.5 28.5 19M21 19l7.5 8.5"/>
+      </svg>
+    </span>
+    <p class="card-kind">Play</p>
+    <h2>Human vs Agent</h2>
+    <p>Animated reveals, a running score, and a pick of heuristic or trained opponents.</p>
+    <a class="card-link" href="{{ url_for('main.play_page') }}">Open Play <span class="btn-arrow" aria-hidden="true">&rarr;</span></a>
   </article>
   <article class="card">
+    <span class="card-badge" aria-hidden="true">
+      <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="9" cy="16" r="5"/>
+        <circle cx="23" cy="16" r="5"/>
+        <path d="M14 16h4M9 11V5M23 21v6"/>
+      </svg>
+    </span>
+    <p class="card-kind">Watch</p>
     <h2>Agent Arena</h2>
     <p>Launch agent-vs-agent matches, stream rounds live, and replay persisted traces.</p>
+    <a class="card-link" href="{{ url_for('main.arena_page') }}">Open Arena <span class="btn-arrow" aria-hidden="true">&rarr;</span></a>
   </article>
   <article class="card">
-    <h2>Dataset + Models</h2>
-    <p>Round logs go to SQLite + JSONL, then become supervised training data.</p>
+    <span class="card-badge" aria-hidden="true">
+      <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 26h24M7 22V14M13 22V8M19 22v-4M25 22V11"/>
+      </svg>
+    </span>
+    <p class="card-kind">Train</p>
+    <h2>Supervised Models</h2>
+    <p>Round logs become datasets. Train decision trees or MLPs and activate them for live play.</p>
+    <a class="card-link" href="{{ url_for('main.training_page') }}">Open Training <span class="btn-arrow" aria-hidden="true">&rarr;</span></a>
   </article>
   <article class="card">
-    <h2>Async Training</h2>
-    <p>Training jobs run in a background worker pattern aligned with App Engine deployment.</p>
+    <span class="card-badge" aria-hidden="true">
+      <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="7" cy="9" r="2.5"/>
+        <circle cx="7" cy="23" r="2.5"/>
+        <circle cx="16" cy="16" r="2.5"/>
+        <circle cx="25" cy="9" r="2.5"/>
+        <circle cx="25" cy="23" r="2.5"/>
+        <path d="M9 10.5 14 14.5M9 21.5 14 17.5M18 14.5 23 10.5M18 17.5 23 21.5"/>
+      </svg>
+    </span>
+    <p class="card-kind">Learn</p>
+    <h2>Reinforcement Learning</h2>
+    <p>Train a tabular Q-learning policy through self-play against a rotating opponent pool.</p>
+    <a class="card-link" href="{{ url_for('main.rl_page') }}">Open RL Lab <span class="btn-arrow" aria-hidden="true">&rarr;</span></a>
   </article>
 </section>
 {% endblock %}
