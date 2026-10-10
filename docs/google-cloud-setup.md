@@ -81,7 +81,7 @@ Set these values:
 - `TASKS_PROJECT_ID: directed-sonar-429119-u2`
 - `TASKS_LOCATION: us-west1`
 - `TASKS_QUEUE: rps-training`
-- `TRAINING_WORKER_URL: https://directed-sonar-429119-u2.uw.r.appspot.com`
+- `TRAINING_WORKER_URL: https://rps-dot-deeprl-031026.wm.r.appspot.com`
 - `INTERNAL_WORKER_TOKEN: <your-random-token>`
 
 `DB_PATH` remains SQLite-based in this phase. It is still temporary on App Engine when set to `/tmp`.

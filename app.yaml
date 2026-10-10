@@ -16,7 +16,7 @@ env_variables:
   TASKS_PROJECT_ID: directed-sonar-429119-u2
   TASKS_LOCATION: us-west3
   TASKS_QUEUE: rps-training
-  TRAINING_WORKER_URL: https://directed-sonar-429119-u2.uw.r.appspot.com
+  TRAINING_WORKER_URL: https://rps-dot-deeprl-031026.wm.r.appspot.com
   TRAINING_WORKER_TOKEN: ""
   TRAINING_WORKER_TOKEN_SECRET: projects/directed-sonar-429119-u2/secrets/rps-worker-token/versions/latest
   INTERNAL_WORKER_TOKEN: ""
